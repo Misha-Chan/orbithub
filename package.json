@@ -1,0 +1,13 @@
+{
+  "name": "orbithub",
+  "version": "1.0.0",
+  "description": "orbithub.hostaka.fun — الدردشة والمجموعات، كمنتج مستقل تابع لهوستاكا",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7"
+  }
+}
