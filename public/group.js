@@ -542,7 +542,20 @@ function setupKeyboardAwareLayout() {
   onViewportChange();
 }
 
+// راجع نفس الشرح بملف chat.js
+async function pullOAuthSessionIfNeeded(){
+  if (getToken()) return;
+  try {
+    const r = await fetch('https://oauth.hostaka.fun/api/token', { credentials: 'include' });
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.token) localStorage.setItem('hostaka_token', d.token);
+    }
+  } catch (e) {}
+}
+
 async function init(){
+  await pullOAuthSessionIfNeeded();
   setupKeyboardAwareLayout();
   if (currentTheme === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
