@@ -52,7 +52,10 @@ const LANG = {
     loadMsgsError: 'خطأ في تحميل الرسائل', cantConnectServer: 'تعذر الاتصال بالخادم',
     reactSendFail: 'فشل إرسال التفاعل', msgSendFail: 'فشل إرسال الرسالة', longPressToSave: 'اضغط مطولاً على الصورة لحفظها',
     jpgOnly: 'JPG/JPEG فقط', reasonAbuse: 'إساءة أو تنمر', reasonSpam: 'رسائل مزعجة', reasonFake: 'حساب مزيف أو منتحل', reasonOther: 'سبب آخر',
-    unblocked: 'تم إلغاء الحظر', blocked: 'تم حظر المستخدم', cantDecrypt: 'تعذر فك تشفير هذه الرسالة'
+    unblocked: 'تم إلغاء الحظر', blocked: 'تم حظر المستخدم', cantDecrypt: 'تعذر فك تشفير هذه الرسالة',
+    reactLike: 'إعجاب', reactLove: 'حب', reactHaha: 'هاها', reactSad: 'حزين', reactAngry: 'غضب',
+    reply: 'رد', settingsSaved: 'تم الحفظ', suspendedMsg: 'تم إيقاف حسابك{reason}',
+    connectionError: 'تعذر الاتصال بالخادم', operationFailed: 'فشلت العملية'
   },
   en: {
     back: 'Hostaka', title: 'Messages', sidebarTitle: 'Messages',
@@ -82,7 +85,10 @@ const LANG = {
     loadMsgsError: 'Error loading messages', cantConnectServer: 'Could not connect to the server',
     reactSendFail: 'Failed to send reaction', msgSendFail: 'Failed to send message', longPressToSave: 'Press and hold the image to save it',
     jpgOnly: 'JPG/JPEG only', reasonAbuse: 'Abuse or harassment', reasonSpam: 'Spam messages', reasonFake: 'Fake or impersonation account', reasonOther: 'Other reason',
-    unblocked: 'Unblocked', blocked: 'User blocked', cantDecrypt: 'Unable to decrypt this message'
+    unblocked: 'Unblocked', blocked: 'User blocked', cantDecrypt: 'Unable to decrypt this message',
+    reactLike: 'Like', reactLove: 'Love', reactHaha: 'Haha', reactSad: 'Sad', reactAngry: 'Angry',
+    reply: 'Reply', settingsSaved: 'Saved', suspendedMsg: 'Your account has been suspended{reason}',
+    connectionError: 'Could not connect to the server', operationFailed: 'Operation failed'
   },
   fr: {
     back: 'Hostaka', title: 'Messages', sidebarTitle: 'Messages',
@@ -148,22 +154,43 @@ let currentTheme = localStorage.getItem('hostaka_theme') || 'light';
 // ============================================================
 //  دوال الترجمة والثيم
 // ============================================================
-function t(key) {
-  return LANG[currentLang]?.[key] || LANG['ar'][key] || key;
+function t(key, params) {
+  var str = (LANG[currentLang] && LANG[currentLang][key]) || LANG['ar'][key] || key;
+  if (params) {
+    for (var k in params) {
+      if (Object.prototype.hasOwnProperty.call(params, k)) {
+        str = str.split('{' + k + '}').join(params[k]);
+      }
+    }
+  }
+  return str;
+}
+
+function setText(id, text) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = text;
 }
 
 function applyLang() {
   document.documentElement.lang = currentLang;
   document.documentElement.dir = (currentLang === 'ar') ? 'rtl' : 'ltr';
-  document.getElementById('backText').textContent = t('back');
-  document.getElementById('topbarTitle').textContent = t('title');
-  document.getElementById('sidebarTitle').textContent = t('sidebarTitle');
-  document.getElementById('newGroupText').textContent = t('newGroup');
-  document.getElementById('loadingUsers').textContent = t('loading');
-  document.getElementById('emptyStateText').textContent = t('emptyState');
-  document.getElementById('modalGroupTitle').textContent = t('createGroupTitle');
-  document.getElementById('modalCancelBtn').textContent = t('cancel');
-  document.getElementById('modalCreateBtn').textContent = t('create');
+  // ملاحظة: backText بملف chat.html أصبح يحتوي على شعار orbithub
+  // (صورتين light/dark داخل brand-logo-wrap)، مو نص قابل للترجمة —
+  // فما لازم نكتب فوقه نص. كان هذا بالضبط سبب اختفاء الشعار: كل ما
+  // تشتغل applyLang() (كل تحميل صفحة + كل تبديل لغة) كانت تمسح صور
+  // الشعار وتحطّ مكانها كلمة "Messages"/"الرسائل" كنص عادي.
+  setText('topbarTitle', t('title'));
+  setText('sidebarTitle', t('sidebarTitle'));
+  setText('newGroupText', t('newGroup'));
+  // ملاحظة: loadingUsers وemptyStateText عناصر مؤقتة (bootstrap-only) —
+  // بتتدمّر أول ما تتحمّل القائمة الجانبية/يتفتح شات، فما لازم نفترض
+  // وجودها دايماً. هذا بالضبط سبب الخطأ المُبلَّغ عنه سابقاً
+  // (TypeError: Cannot set properties of null) عند تغيير اللغة بعد تحميل الصفحة.
+  setText('loadingUsers', t('loading'));
+  setText('emptyStateText', t('emptyState'));
+  setText('modalGroupTitle', t('createGroupTitle'));
+  setText('modalCancelBtn', t('cancel'));
+  setText('modalCreateBtn', t('create'));
   const cgName = document.getElementById('cgName');
   if (cgName) cgName.placeholder = t('groupName');
   const msgInput = document.getElementById('msgInput');
@@ -1153,29 +1180,8 @@ async function loadMsgReactions(msgs) {
 }
 
 
-function renderMsgs(msgs, scroll = true) {
-  const area = document.getElementById('msgsArea');
-  if (!area) return;
-  lastLoadedMsgs = msgs || [];
-  if (!msgs || !msgs.length) {
-    area.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px;font-size:0.85rem;font-weight:600;">' + t('noMessages') + '</div>';
-    return;
-  }
-  let html = '', lastDay = '';
-  const showReceipts = myReadReceiptsEnabled && peerReadReceiptsEnabled;
-  let lastReadMineId = null;
-  if (showReceipts) {
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].from_id == ME?.id && Number(msgs[i].read) === 1) { lastReadMineId = msgs[i].id; break; }
-    }
-  }
-  msgs.forEach((m, i) => {
+function renderOneMsgHtml(m, i, msgs, showReceipts, lastReadMineId) {
     const isMine = m.from_id == ME?.id;
-    const day = fmtDay(m.created_at);
-    if (day !== lastDay) {
-      html += `<div class="date-divider"><span>${day}</span></div>`;
-      lastDay = day;
-    }
     const next = msgs[i + 1];
     const isLast = !next || next.from_id != m.from_id;
     const av = m.from_avatar ? `<img src="${esc(m.from_avatar)}" alt="">` : (m.from_name || '?').charAt(0).toUpperCase();
@@ -1195,7 +1201,7 @@ function renderMsgs(msgs, scroll = true) {
                  <button class="r-emoji" onclick="deleteMsg(event, ${m.id})" title="${t('deleteMsg')}">${SVG.deleteIc}</button>`
               : `<button class="r-emoji" onclick="openReportMsgModal(event, ${m.id})" title="${t('reportMsg')}">${SVG.flagIc}</button>`}
           </div>`;
-    html += `<div class="msg-row ${isMine ? 'mine' : 'theirs'}">
+    return `<div class="msg-row ${isMine ? 'mine' : 'theirs'}" id="msgrow-${m.id}">
       ${!isMine ? `<div class="msg-av ${isLast ? '' : 'invisible'}">${av}</div>` : ''}
       <div class="bubble-wrap">
         ${m.image ? `<div class="bubble-media" onclick="openImgViewer(this.querySelector('img').src)">
@@ -1216,10 +1222,116 @@ function renderMsgs(msgs, scroll = true) {
       </div>
       ${isMine ? `<div class="msg-av ${isLast ? '' : 'invisible'}">${av}</div>` : ''}
     </div>`;
+}
+
+// توقيع خفيف لكل رسالة: أي تغيير بمحتواها الفعلي (نص، تعديل، قراءة،
+// تفاعلات...) يغيّر التوقيع. يُستخدم لتفادي إعادة رسم صفوف ما تغيّرت.
+function msgSignature(m, rc, showsSeenReceipt) {
+  const reacts = (rc && rc.reactions && rc.reactions.length)
+    ? rc.reactions.map(r => (r.emoji || '') + ':' + (r.count || 0)).sort().join(',') : '';
+  return [m.content, m.image, m.edited, showsSeenReceipt, reacts, rc && rc.userReaction].join('|');
+}
+
+// حالة آخر رسم فعلي لمنطقة الرسائل — تُستخدم لتفادي "إعادة تحديث الصفحة"
+// كل 4 ثواني (كانت المشكلة: renderMsgs القديمة تدمّر كل الرسائل وتعيد
+// بناءها من الصفر بكل استطلاع polling، حتى لو ما تغيّر شي — هذا يسبب
+// قفزة/وميض ظاهر ويعيد تحميل كل الصور من جديد). الحل: لما يكون التحديث
+// مجرد "رسائل جديدة انضافت بالنهاية" (الحالة الشائعة جداً أثناء polling)،
+// نلحق فقط الصفوف الجديدة ونحدّث الصفوف يلي تغيّر توقيعها الفعلي، بدون
+// لمس أي صف تاني. لو صار شي أعقد (حذف/إعادة ترتيب) نرجع لإعادة بناء كاملة
+// كحل احتياطي آمن — أبطأ بس دايماً صحيح.
+let _msgRenderState = { peer: null, ids: [], sigs: {} };
+
+function renderMsgs(msgs, scroll = true) {
+  const area = document.getElementById('msgsArea');
+  if (!area) return;
+  lastLoadedMsgs = msgs || [];
+
+  if (!msgs || !msgs.length) {
+    area.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px;font-size:0.85rem;font-weight:600;">' + t('noMessages') + '</div>';
+    _msgRenderState = { peer: currentPeer, ids: [], sigs: {} };
+    return;
+  }
+
+  const showReceipts = myReadReceiptsEnabled && peerReadReceiptsEnabled;
+  let lastReadMineId = null;
+  if (showReceipts) {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].from_id == ME?.id && Number(msgs[i].read) === 1) { lastReadMineId = msgs[i].id; break; }
+    }
+  }
+
+  const newIds = msgs.map(m => m.id);
+  const oldIds = _msgRenderState.ids;
+  const isFreshChat = _msgRenderState.peer !== currentPeer || !area.querySelector('.msg-row, .date-divider');
+  let samePrefix = !isFreshChat && oldIds.length <= newIds.length;
+  if (samePrefix) {
+    for (let i = 0; i < oldIds.length; i++) {
+      if (oldIds[i] !== newIds[i]) { samePrefix = false; break; }
+    }
+  }
+
+  const newSigs = {};
+  msgs.forEach(m => {
+    const showsSeenReceipt = showReceipts && m.from_id == ME?.id && m.id === lastReadMineId;
+    newSigs[m.id] = msgSignature(m, msgReactions[m.id] || { reactions: [], userReaction: null }, showsSeenReceipt);
   });
-  area.innerHTML = html;
+
+  if (!samePrefix) {
+    // إعادة بناء كاملة — أول فتح للمحادثة، أو حذف/إعادة ترتيب رسائل (نادر)
+    let html = '', lastDay = '';
+    msgs.forEach((m, i) => {
+      const day = fmtDay(m.created_at);
+      if (day !== lastDay) { html += `<div class="date-divider"><span>${day}</span></div>`; lastDay = day; }
+      html += renderOneMsgHtml(m, i, msgs, showReceipts, lastReadMineId);
+    });
+    area.innerHTML = html;
+    loadLinkPreviews(area);
+  } else {
+    // تحديث تدريجي: بس الصفوف يلي تغيّر توقيعها + أي رسائل جديدة بالآخر.
+    // كمان نعيد رسم آخر رسالة قديمة لأنه حالة تجميع الأفاتار (isLast) فيها
+    // ممكن تتغيّر لما تنضاف رسالة جديدة من نفس المُرسل بعدها مباشرة.
+    const recomputeFromIdx = Math.max(0, oldIds.length - 1);
+    for (let i = recomputeFromIdx; i < oldIds.length; i++) {
+      const m = msgs[i];
+      if (_msgRenderState.sigs[m.id] === newSigs[m.id] && i !== recomputeFromIdx) continue;
+      const rowHtml = renderOneMsgHtml(m, i, msgs, showReceipts, lastReadMineId);
+      const oldNode = document.getElementById('msgrow-' + m.id);
+      if (oldNode) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = rowHtml;
+        oldNode.replaceWith(wrapper.firstElementChild);
+      }
+    }
+    for (let i = 0; i < recomputeFromIdx; i++) {
+      const m = msgs[i];
+      if (_msgRenderState.sigs[m.id] === newSigs[m.id]) continue;
+      const rowHtml = renderOneMsgHtml(m, i, msgs, showReceipts, lastReadMineId);
+      const oldNode = document.getElementById('msgrow-' + m.id);
+      if (oldNode) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = rowHtml;
+        oldNode.replaceWith(wrapper.firstElementChild);
+      }
+    }
+    if (newIds.length > oldIds.length) {
+      let lastDay = oldIds.length ? fmtDay(msgs[oldIds.length - 1].created_at) : '';
+      let appendHtml = '';
+      for (let i = oldIds.length; i < msgs.length; i++) {
+        const m = msgs[i];
+        const day = fmtDay(m.created_at);
+        if (day !== lastDay) { appendHtml += `<div class="date-divider"><span>${day}</span></div>`; lastDay = day; }
+        appendHtml += renderOneMsgHtml(m, i, msgs, showReceipts, lastReadMineId);
+      }
+      const wasNearBottom = (area.scrollHeight - area.scrollTop - area.clientHeight) < 120;
+      area.insertAdjacentHTML('beforeend', appendHtml);
+      loadLinkPreviews(area);
+      if (wasNearBottom) area.scrollTop = area.scrollHeight;
+    }
+  }
+
+  _msgRenderState = { peer: currentPeer, ids: newIds, sigs: newSigs };
   if (scroll) area.scrollTop = area.scrollHeight;
-  loadLinkPreviews(area);
   if (peerIsTyping) renderTypingRow(true);
 }
 

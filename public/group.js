@@ -36,7 +36,8 @@ const LANG = {
     reportGroupTitle:'الإبلاغ عن المجموعة', reportGroupSent:'تم إرسال البلاغ، شكراً لك',
     readReceiptsToggle:'إظهار مؤشر قراءة الرسائل', seenBy:'شاهدها',
     reasonAbuse:'إساءة أو تنمر', reasonSpam:'رسائل مزعجة', reasonNudity:'محتوى غير لائق', reasonOther:'سبب آخر',
-    jpgOnly:'JPG/JPEG فقط', reportGroupMsgSubject:'إبلاغ عن رسالة مجموعة'
+    jpgOnly:'JPG/JPEG فقط', reportGroupMsgSubject:'إبلاغ عن رسالة مجموعة',
+    reply:'رد', suspendedMsg:'تم إيقاف حسابك{reason}', imageTooLarge:'الصورة كبيرة جداً', longPressToSave:'اضغط مطولاً للحفظ'
   },
   en: {
     title:'Group', back:'Messages', members:'Members', add:'Add',
@@ -60,7 +61,8 @@ const LANG = {
     reportGroupTitle:'Report group', reportGroupSent:'Report sent, thank you',
     readReceiptsToggle:'Show read receipts', seenBy:'Seen by',
     reasonAbuse:'Abuse or harassment', reasonSpam:'Spam messages', reasonNudity:'Inappropriate content', reasonOther:'Other reason',
-    jpgOnly:'JPG/JPEG only', reportGroupMsgSubject:'Report on a group message'
+    jpgOnly:'JPG/JPEG only', reportGroupMsgSubject:'Report on a group message',
+    reply:'Reply', suspendedMsg:'Your account has been suspended{reason}', imageTooLarge:'Image is too large', longPressToSave:'Long-press to save'
   },
   fr: {
     title:'Groupe', back:'Messages', members:'Membres', add:'Ajouter',
@@ -134,7 +136,17 @@ let pollTimer = null;
 let msgReactions = {};
 let chatImgBase64 = '';
 
-function t(key){ return LANG[currentLang]?.[key] || LANG['ar'][key] || key; }
+function t(key, params) {
+  var str = (LANG[currentLang] && LANG[currentLang][key]) || LANG['ar'][key] || key;
+  if (params) {
+    for (var k in params) {
+      if (Object.prototype.hasOwnProperty.call(params, k)) {
+        str = str.split('{' + k + '}').join(params[k]);
+      }
+    }
+  }
+  return str;
+}
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ============================================================
@@ -225,23 +237,34 @@ const REACTIONS = [
   { emoji:'sad', icon:SVG.sad }, { emoji:'angry', icon:SVG.angry },
 ];
 
+function setText(id, text) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
 function applyLang(){
   document.documentElement.lang = currentLang;
   document.documentElement.dir = (currentLang === 'ar') ? 'rtl' : 'ltr';
-  document.getElementById('backText').textContent = t('back');
-  document.getElementById('membersTitle').textContent = t('members');
-  document.getElementById('addMemberText').textContent = t('add');
-  document.getElementById('loadingText').textContent = t('loading');
-  document.getElementById('settingsTitle').textContent = t('settingsTitle');
-  document.getElementById('gsName').placeholder = t('groupName');
-  document.getElementById('gsDesc').placeholder = t('groupDesc');
-  document.getElementById('gsCancelBtn').textContent = t('cancel');
-  document.getElementById('gsSaveText').textContent = t('save');
-  document.getElementById('leaveGroupBtn').textContent = t('leaveGroup');
-  document.getElementById('deleteGroupBtn').textContent = t('deleteGroup');
-  document.getElementById('addMemberTitle').textContent = t('addMembersTitle');
-  document.getElementById('amCancelBtn').textContent = t('cancel');
-  document.getElementById('amConfirmText').textContent = t('add');
+  setText('backText', t('back'));
+  setText('membersTitle', t('members'));
+  setText('addMemberText', t('add'));
+  // loadingText عنصر مؤقت (bootstrap-only) داخل حالة "فاضية" لمنطقة
+  // الرسائل — بيتدمّر أول ما تُفتح المحادثة، تماماً متل loadingUsers
+  // بملف chat.js. كان هذا سبب نفس الخطأ (Cannot set properties of null)
+  // لما تتغير اللغة بعد فتح مجموعة.
+  setText('loadingText', t('loading'));
+  setText('settingsTitle', t('settingsTitle'));
+  const gsName = document.getElementById('gsName');
+  if (gsName) gsName.placeholder = t('groupName');
+  const gsDesc = document.getElementById('gsDesc');
+  if (gsDesc) gsDesc.placeholder = t('groupDesc');
+  setText('gsCancelBtn', t('cancel'));
+  setText('gsSaveText', t('save'));
+  setText('leaveGroupBtn', t('leaveGroup'));
+  setText('deleteGroupBtn', t('deleteGroup'));
+  setText('addMemberTitle', t('addMembersTitle'));
+  setText('amCancelBtn', t('cancel'));
+  setText('amConfirmText', t('add'));
   const msgInput = document.getElementById('msgInput');
   if (msgInput) msgInput.placeholder = t('sendPlaceholder');
   renderMembers();
@@ -996,14 +1019,71 @@ async function loadMsgReactions(msgs){
   }
 }
 
+function renderOneGroupMsgHtml(m, i, msgs, receiptsByMsgId) {
+  const isMine = m.user_id == ME?.id;
+  const canManageMsg = isMine || myRole !== 'member';
+  const next = msgs[i + 1];
+  const isLast = !next || next.user_id != m.user_id;
+  const av = m.from_avatar ? `<img src="${esc(m.from_avatar)}" alt="">` : (m.from_name || '?').charAt(0).toUpperCase();
+  const rc = msgReactions[m.id] || { reactions: [], userReaction: null };
+  const totalReacts = rc.reactions && rc.reactions.length ? rc.reactions.reduce((s, r) => s + Number(r.count || 0), 0) : 0;
+  const reactionHtml = totalReacts > 0 ?
+    `<div class="msg-reaction" onclick="togglePicker(${m.id})">${rc.reactions.map(r => (REACTIONS.find(x => x.emoji === r.emoji) || {}).icon || '').join('')} <span style="font-size:0.7rem;color:var(--muted);">${totalReacts}</span></div>` : '';
+  const firstUrl = extractFirstUrl(m.content);
+  const replySrc = m.reply_to ? msgs.find(x => x.id === m.reply_to) : null;
+  const replyQuoteHtml = replySrc ? `<div class="msg-reply-quote">${(window.EmojiFluent ? EmojiFluent.render(esc((replySrc.content || (replySrc.image ? '📷 صورة' : '')).slice(0,80))) : esc((replySrc.content || (replySrc.image ? '📷 صورة' : '')).slice(0,80)))}</div>` : (m.reply_to ? `<div class="msg-reply-quote">${t('reply')}</div>` : '');
+  const pickerHtml = `<div class="react-picker" id="picker-${m.id}">
+          ${REACTIONS.map(r => `<button class="r-emoji ${rc.userReaction===r.emoji?'active':''}" onclick="reactMsg(event,${m.id},'${r.emoji}')">${r.icon}</button>`).join('')}
+          <div class="picker-sep"></div>
+          <button class="r-emoji" onclick="startReplyMsg(event, ${m.id})" title="${t('reply')}">${SVG.arrow}</button>
+          ${isMine ? `<button class="r-emoji" onclick="startEditMsg(event, ${m.id})" title="${t('editMsg')}">${SVG.editIc}</button>` : ''}
+          ${canManageMsg ? `<button class="r-emoji" onclick="deleteMsg(event, ${m.id})" title="${t('deleteMsg')}">${SVG.deleteIc}</button>` : ''}
+          ${!isMine ? `<button class="r-emoji" onclick="openReportMsgModal(event, ${m.id})" title="${t('reportMsg')}">${SVG.flagIc}</button>` : ''}
+        </div>`;
+  return `<div class="msg-row ${isMine ? 'mine' : 'theirs'}" id="msgrow-${m.id}">
+    ${!isMine ? `<div class="msg-av ${isLast?'':'invisible'}">${av}</div>` : ''}
+    <div class="bubble-wrap">
+      ${!isMine && isLast ? `<div class="sender-name">${esc(m.from_name)}</div>` : ''}
+      ${m.image ? `<div class="bubble-media" onclick="openImgViewer(this.querySelector('img').src)">
+        ${replyQuoteHtml}
+        <img class="bubble-img" src="${esc(m.image)}" loading="lazy" onerror="this.parentElement.style.display='none'">
+        <button class="media-more-btn" onclick="event.stopPropagation();togglePicker(${m.id})" title="${t('editMsg')}">${SVG.moreIc || '⋮'}</button>
+        ${pickerHtml}
+      </div>` : ''}
+      ${m.content ? `<div class="bubble" id="bubble-${m.id}" onclick="togglePicker(${m.id})">
+        ${replyQuoteHtml}
+        ${linkifyEscaped(esc(m.content))}
+        ${firstUrl ? `<div class="link-preview-slot" data-lp-url="${esc(firstUrl)}"></div>` : ''}
+        ${!m.image ? pickerHtml : ''}
+      </div>` : ''}
+      ${reactionHtml}
+      <div class="msg-time">${fmtTime(m.created_at)}${Number(m.edited)===1 ? ' · <span class="msg-edited-tag">'+esc(t('msgEdited'))+'</span>' : ''}</div>
+      ${receiptsByMsgId[m.id] ? `<div class="seen-receipt" title="${t('seenBy')}: ${receiptsByMsgId[m.id].map(x=>esc(x.nickname||x.display_name||x.username)).join('، ')}">${receiptsByMsgId[m.id].slice(0,3).map(x => `<div class="seen-av">${x.avatar ? `<img src="${esc(x.avatar)}" alt="">` : (x.display_name||x.username||'?').charAt(0).toUpperCase()}</div>`).join('')}</div>` : ''}
+    </div>
+    ${isMine ? `<div class="msg-av ${isLast?'':'invisible'}">${av}</div>` : ''}
+  </div>`;
+}
+
+function groupMsgSignature(m, rc, receipts) {
+  const reacts = (rc && rc.reactions && rc.reactions.length) ? rc.reactions.map(r => (r.emoji||'')+':'+(r.count||0)).sort().join(',') : '';
+  const seenIds = receipts ? receipts.map(x => x.user_id).sort().join(',') : '';
+  return [m.content, m.image, m.edited, reacts, rc && rc.userReaction, seenIds].join('|');
+}
+
+// نفس منطق التحديث التدريجي المستخدم بـ chat.js — لتفادي تدمير كل صفوف
+// الرسائل وإعادة بنائها من الصفر كل استطلاع polling (4 ثواني)، يلي كان
+// يسبب قفزة/وميض ظاهر وإعادة تحميل كل الصور من جديد بدون داعي.
+let _groupMsgRenderState = { ids: [], sigs: {} };
+
 function renderMsgs(msgs, scroll = true){
   const area = document.getElementById('msgsArea');
   if (!area) return;
   if (!msgs || !msgs.length){
     area.innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px;font-size:0.85rem;font-weight:600;">${t('noMessages')}</div>`;
+    _groupMsgRenderState = { ids: [], sigs: {} };
     return;
   }
-  let html = '', lastDay = '';
+
   const receiptsByMsgId = {};
   if (groupReadReceiptsEnabled) {
     members.forEach(mem => {
@@ -1017,58 +1097,62 @@ function renderMsgs(msgs, scroll = true){
       if (candidate) (receiptsByMsgId[candidate.id] = receiptsByMsgId[candidate.id] || []).push(mem);
     });
   }
-  msgs.forEach((m, i) => {
-    const isMine = m.user_id == ME?.id;
-    const canManageMsg = isMine || myRole !== 'member';
-    const day = fmtDay(m.created_at);
-    if (day !== lastDay){
-      html += `<div class="date-divider"><span>${day}</span></div>`;
-      lastDay = day;
+
+  const newIds = msgs.map(m => m.id);
+  const oldIds = _groupMsgRenderState.ids;
+  const isFreshChat = !area.querySelector('.msg-row, .date-divider');
+  let samePrefix = !isFreshChat && oldIds.length <= newIds.length;
+  if (samePrefix) {
+    for (let i = 0; i < oldIds.length; i++) {
+      if (oldIds[i] !== newIds[i]) { samePrefix = false; break; }
     }
-    const next = msgs[i+1];
-    const isLast = !next || next.user_id != m.user_id;
-    const av = m.from_avatar ? `<img src="${esc(m.from_avatar)}" alt="">` : (m.from_name||'?').charAt(0).toUpperCase();
-    const rc = msgReactions[m.id] || { reactions: [], userReaction: null };
-    const totalReacts = rc.reactions && rc.reactions.length ? rc.reactions.reduce((s,r)=> s+Number(r.count||0), 0) : 0;
-    const reactionHtml = totalReacts > 0 ?
-      `<div class="msg-reaction" onclick="togglePicker(${m.id})">${rc.reactions.map(r => (REACTIONS.find(x=>x.emoji===r.emoji)||{}).icon || '').join('')} <span style="font-size:0.7rem;color:var(--muted);">${totalReacts}</span></div>` : '';
-    const firstUrl = extractFirstUrl(m.content);
-    const replySrc = m.reply_to ? msgs.find(x => x.id === m.reply_to) : null;
-    const replyQuoteHtml = replySrc ? `<div class="msg-reply-quote">${(window.EmojiFluent ? EmojiFluent.render(esc((replySrc.content || (replySrc.image ? '📷 صورة' : '')).slice(0,80))) : esc((replySrc.content || (replySrc.image ? '📷 صورة' : '')).slice(0,80)))}</div>` : (m.reply_to ? `<div class="msg-reply-quote">${t('reply')}</div>` : '');
-    const pickerHtml = `<div class="react-picker" id="picker-${m.id}">
-            ${REACTIONS.map(r => `<button class="r-emoji ${rc.userReaction===r.emoji?'active':''}" onclick="reactMsg(event,${m.id},'${r.emoji}')">${r.icon}</button>`).join('')}
-            <div class="picker-sep"></div>
-            <button class="r-emoji" onclick="startReplyMsg(event, ${m.id})" title="${t('reply')}">${SVG.arrow}</button>
-            ${isMine ? `<button class="r-emoji" onclick="startEditMsg(event, ${m.id})" title="${t('editMsg')}">${SVG.editIc}</button>` : ''}
-            ${canManageMsg ? `<button class="r-emoji" onclick="deleteMsg(event, ${m.id})" title="${t('deleteMsg')}">${SVG.deleteIc}</button>` : ''}
-            ${!isMine ? `<button class="r-emoji" onclick="openReportMsgModal(event, ${m.id})" title="${t('reportMsg')}">${SVG.flagIc}</button>` : ''}
-          </div>`;
-    html += `<div class="msg-row ${isMine ? 'mine' : 'theirs'}">
-      ${!isMine ? `<div class="msg-av ${isLast?'':'invisible'}">${av}</div>` : ''}
-      <div class="bubble-wrap">
-        ${!isMine && isLast ? `<div class="sender-name">${esc(m.from_name)}</div>` : ''}
-        ${m.image ? `<div class="bubble-media" onclick="openImgViewer(this.querySelector('img').src)">
-          ${replyQuoteHtml}
-          <img class="bubble-img" src="${esc(m.image)}" loading="lazy" onerror="this.parentElement.style.display='none'">
-          <button class="media-more-btn" onclick="event.stopPropagation();togglePicker(${m.id})" title="${t('editMsg')}">${SVG.moreIc || '⋮'}</button>
-          ${pickerHtml}
-        </div>` : ''}
-        ${m.content ? `<div class="bubble" id="bubble-${m.id}" onclick="togglePicker(${m.id})">
-          ${replyQuoteHtml}
-          ${linkifyEscaped(esc(m.content))}
-          ${firstUrl ? `<div class="link-preview-slot" data-lp-url="${esc(firstUrl)}"></div>` : ''}
-          ${!m.image ? pickerHtml : ''}
-        </div>` : ''}
-        ${reactionHtml}
-        <div class="msg-time">${fmtTime(m.created_at)}${Number(m.edited)===1 ? ' · <span class="msg-edited-tag">'+esc(t('msgEdited'))+'</span>' : ''}</div>
-        ${receiptsByMsgId[m.id] ? `<div class="seen-receipt" title="${t('seenBy')}: ${receiptsByMsgId[m.id].map(x=>esc(x.nickname||x.display_name||x.username)).join('، ')}">${receiptsByMsgId[m.id].slice(0,3).map(x => `<div class="seen-av">${x.avatar ? `<img src="${esc(x.avatar)}" alt="">` : (x.display_name||x.username||'?').charAt(0).toUpperCase()}</div>`).join('')}</div>` : ''}
-      </div>
-      ${isMine ? `<div class="msg-av ${isLast?'':'invisible'}">${av}</div>` : ''}
-    </div>`;
+  }
+
+  const newSigs = {};
+  msgs.forEach(m => {
+    newSigs[m.id] = groupMsgSignature(m, msgReactions[m.id] || { reactions: [], userReaction: null }, receiptsByMsgId[m.id]);
   });
-  area.innerHTML = html;
+
+  if (!samePrefix) {
+    let html = '', lastDay = '';
+    msgs.forEach((m, i) => {
+      const day = fmtDay(m.created_at);
+      if (day !== lastDay) { html += `<div class="date-divider"><span>${day}</span></div>`; lastDay = day; }
+      html += renderOneGroupMsgHtml(m, i, msgs, receiptsByMsgId);
+    });
+    area.innerHTML = html;
+    loadLinkPreviews(area);
+  } else {
+    const recomputeFromIdx = Math.max(0, oldIds.length - 1);
+    for (let i = 0; i < oldIds.length; i++) {
+      const m = msgs[i];
+      if (i !== recomputeFromIdx && _groupMsgRenderState.sigs[m.id] === newSigs[m.id]) continue;
+      const rowHtml = renderOneGroupMsgHtml(m, i, msgs, receiptsByMsgId);
+      const oldNode = document.getElementById('msgrow-' + m.id);
+      if (oldNode) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = rowHtml;
+        oldNode.replaceWith(wrapper.firstElementChild);
+      }
+    }
+    if (newIds.length > oldIds.length) {
+      let lastDay = oldIds.length ? fmtDay(msgs[oldIds.length - 1].created_at) : '';
+      let appendHtml = '';
+      for (let i = oldIds.length; i < msgs.length; i++) {
+        const m = msgs[i];
+        const day = fmtDay(m.created_at);
+        if (day !== lastDay) { appendHtml += `<div class="date-divider"><span>${day}</span></div>`; lastDay = day; }
+        appendHtml += renderOneGroupMsgHtml(m, i, msgs, receiptsByMsgId);
+      }
+      const wasNearBottom = (area.scrollHeight - area.scrollTop - area.clientHeight) < 120;
+      area.insertAdjacentHTML('beforeend', appendHtml);
+      loadLinkPreviews(area);
+      if (wasNearBottom) area.scrollTop = area.scrollHeight;
+    }
+  }
+
+  _groupMsgRenderState = { ids: newIds, sigs: newSigs };
   if (scroll) area.scrollTop = area.scrollHeight;
-  loadLinkPreviews(area);
   if (groupTypingUsers.length) renderGroupTypingRow();
 }
 

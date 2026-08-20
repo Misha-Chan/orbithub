@@ -332,6 +332,7 @@
       throw new Error(errData.error || 'تعذر حفظ رمز PIN على السيرفر');
     }
 
+    _peerKeyCache = {}; // أي محاولات فاشلة سابقة (قبل إعداد الهوية) لازم تُعاد من جديد
     _registered = false;
     sessionStorage.removeItem('hostaka_pubkey_registered');
     await ensureKeysRegistered();

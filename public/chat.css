@@ -123,6 +123,15 @@ body.page-chat .wp-btn-primary:hover {opacity:.88;}
     }
 body.page-chat .topbar-left {display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
 body.page-chat .topbar-right {display:flex;align-items:center;gap:6px;flex-shrink:0;}
+/* لم يكن فيه أي حماية من تجاوز أزرار الـ topbar لعرض الشاشة على الموبايل —
+   flex-shrink:0 يمنعها من الانضغاط، وبدون overflow صريح كانت ممكن تنقص
+   أو تختفي بصمت بدل ما تبقى قابلة للوصول. هذا حل احتياطي آمن: يخلي أي
+   زر ما بياخد مساحة كافية قابل للوصول بالتمرير الأفقي بدل ما يختفي،
+   بدون ما يغيّر شكل التصميم بالحالة العادية (لما المساحة كافية أصلاً). */
+body.page-chat .topbar {overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;}
+body.page-chat .topbar::-webkit-scrollbar {display:none;}
+body.page-chat .topbar-left {min-width:0;}
+body.page-chat .topbar-title {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 body.page-chat .back-btn {
       display:flex;align-items:center;gap:6px;
       color:var(--muted);font-size:0.82rem;cursor:pointer;

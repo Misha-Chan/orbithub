@@ -107,7 +107,9 @@ body.page-group .topbar {
       border-bottom:1px solid var(--border);
       display:flex;align-items:center;padding:0 16px;gap:10px;
       flex-shrink:0;z-index:20;transition:background 0.3s, border-color 0.3s;
+      overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;
     }
+body.page-group .topbar::-webkit-scrollbar {display:none;}
 body.page-group .topbar-left {display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
 body.page-group .topbar-right {display:flex;align-items:center;gap:6px;flex-shrink:0;}
 body.page-group .back-btn {
