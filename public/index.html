@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403 - ممنوع الدخول</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="grain-overlay"></div>
+
+    <nav class="nav">
+        <a href="/" class="logo">
+            <span class="logo-icon">◆</span>
+            <span class="logo-text">موقعك</span>
+        </a>
+    </nav>
+
+    <main class="main">
+        <div class="canvas-container">
+            <canvas id="three-canvas"></canvas>
+        </div>
+
+        <div class="content">
+            <div class="error-code">
+                <span class="digit" data-delay="0">4</span>
+                <span class="digit" data-delay="150">0</span>
+                <span class="digit" data-delay="300">3</span>
+            </div>
+
+            <div class="divider">
+                <span class="divider-line"></span>
+                <span class="divider-icon">◆</span>
+                <span class="divider-line"></span>
+            </div>
+
+            <h1 class="title">ممنوع الدخول</h1>
+            <p class="description">
+                عذراً، ليس لديك الصلاحية للوصول إلى هذه الصفحة.<br>
+                يبدو أنك وصلت إلى منطقة محظورة.
+            </p>
+
+            <div class="actions">
+                <a href="/" class="btn btn-primary">
+                    <span class="btn-icon">←</span>
+                    <span>العودة للرئيسية</span>
+                </a>
+                <button class="btn btn-secondary" onclick="window.location.reload()">
+                    <span class="btn-icon">↻</span>
+                    <span>إعادة المحاولة</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>© 2026 جميع الحقوق محفوظة</p>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
+  
