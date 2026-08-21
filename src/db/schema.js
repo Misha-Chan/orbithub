@@ -50,7 +50,7 @@ async function initSchema() {
       to_name    TEXT NOT NULL,
       content    TEXT NOT NULL,
       image      TEXT DEFAULT '',
-      reply_to   INTEGER DEFAULT NULL REFERENCES messages(id) ON DELETE SET NULL,
+      reply_to   INTEGER DEFAULT NULL,
       encrypted  INTEGER NOT NULL DEFAULT 0,
       iv         TEXT DEFAULT '',
       read       INTEGER NOT NULL DEFAULT 0,
@@ -144,7 +144,42 @@ async function initSchema() {
     );
   `);
 
+  await migrateExistingTables();
   console.log('✅ Schema ready');
+}
+
+/**
+ * لو هالمشروع متوصّل بقاعدة بيانات فيها جداول قديمة أصلاً (نفس الأسماء: users,
+ * messages, group_members...) — مثلاً قاعدة مشروع hostaka القديم نفسها — فـ
+ * "CREATE TABLE IF NOT EXISTS" أعلاه ما يلمسها ولا يضيف الأعمدة الجديدة يلي
+ * يحتاجها هذا المشروع (زي public_key، أو reply_to). هذي الدالة تتأكد أن هالأعمدة
+ * موجودة بأمان، بدون ما تمسح أو تعدّل أي بيانات موجودة — تماماً متل migration عادية.
+ */
+async function migrateExistingTables() {
+  const columnsToEnsure = [
+    ['users', 'public_key', "TEXT DEFAULT ''"],
+    ['users', 'message_privacy', "TEXT NOT NULL DEFAULT 'everyone'"],
+    ['users', 'read_receipts', 'INTEGER NOT NULL DEFAULT 1'],
+    ['messages', 'reply_to', 'INTEGER DEFAULT NULL'],
+    ['messages', 'encrypted', 'INTEGER NOT NULL DEFAULT 0'],
+    ['messages', 'iv', "TEXT DEFAULT ''"],
+    ['group_members', 'last_read_at', 'TEXT DEFAULT NULL'],
+  ];
+
+  for (const [table, column, definition] of columnsToEnsure) {
+    try {
+      const info = await db.execute(`PRAGMA table_info(${table})`);
+      const exists = info.rows.some((r) => r.name === column);
+      if (!exists) {
+        await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+        console.log(`  ↳ أضيف عمود ناقص: ${table}.${column}`);
+      }
+    } catch (err) {
+      // لو الجدول نفسه غير موجود بعد (حالة قاعدة بيانات فاضية تماماً)، تجاهل —
+      // CREATE TABLE IF NOT EXISTS أعلاه كان قد أنشأه أصلاً بكل أعمدته.
+      console.warn(`  ⚠️ تعذر التحقق من ${table}.${column}:`, err.message);
+    }
+  }
 }
 
 module.exports = { initSchema };
