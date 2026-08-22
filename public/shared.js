@@ -105,8 +105,52 @@ const Api = (() => {
  * (ملاحظة: هذا المسار صار نادر الحدوث فعلياً بعد تفعيل oauth.hostaka.fun
  * أعلاه — بيصير بس أول زيارة إطلاقاً لأي نطاق فرعي بمنصة Hostaka، قبل ما
  * تتخزن الكوكي المشتركة لأول مرة.)
+ *
+ * قاطع دائرة: لو صار عدة محاولات تحويل بفترة قصيرة (يعني في حلقة —
+ * orbithub يفشل يتحقق من التوكن، يرجع لتسجيل الدخول، تسجيل الدخول يكتشف
+ * جلسة موجودة ويرجّعه بصمت، ويفشل يتحقق تاني... للأبد)، نوقف التحويل
+ * تماماً ونعرض رسالة خطأ واضحة بدل ما تضل الصفحة تلمع بين orbithub
+ * وتسجيل الدخول بدون توقف. هذا **يوقف الحلقة**، لكن السبب الجذري غالباً
+ * JWT_SECRET غير مطابق بالضبط بين orbithub وHostaka (أو TURSO_* لو فشل
+ * بحساب "الحساب غير موجود") — راجع الكونسول لرسالة الخطأ الحقيقية.
  */
-function redirectToHostakaLogin() {
+const REDIRECT_GUARD_KEY = 'orbithub_auth_redirect_count';
+const REDIRECT_GUARD_WINDOW_MS = 15000; // 15 ثانية
+const REDIRECT_GUARD_MAX = 3;
+
+function showAuthLoopError(detail) {
+  console.error('[orbithub] توقفت المصادقة بعد عدة محاولات متتالية فاشلة. السبب المُبلَّغ من السيرفر:', detail);
+  document.body.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:14px;font-family:system-ui,sans-serif;text-align:center;padding:24px;direction:rtl">
+      <div style="font-size:40px">🐈💔</div>
+      <h2 style="margin:0">تعذّر تأكيد تسجيل الدخول تلقائياً</h2>
+      <p style="color:#888;max-width:420px;margin:0">
+        صار في تحويل متكرر بين orbithub وصفحة الدخول بدون توقف — على الأغلب
+        السيرفر يرفض التوكن (JWT_SECRET غير مطابق بين orbithub وHostaka
+        بالضبط، أو قاعدة البيانات غير موصولة). افتح أدوات المطوّر (Console)
+        بالمتصفح لرؤية رسالة الخطأ الحقيقية القادمة من السيرفر.
+      </p>
+      <button onclick="localStorage.removeItem('${SESSION_KEY}'); sessionStorage.removeItem('${REDIRECT_GUARD_KEY}'); location.href='https://hostaka.fun/login?next=' + encodeURIComponent('https://hostaka.fun/chat');"
+        style="padding:10px 22px;border:none;border-radius:8px;background:#8b5e3c;color:#fff;font-size:14px;cursor:pointer">
+        امسح الجلسة وحاول تسجيل الدخول من جديد
+      </button>
+    </div>`;
+}
+
+function redirectToHostakaLogin(reason) {
+  let count = 0;
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(REDIRECT_GUARD_KEY) || 'null');
+    if (raw && Date.now() - raw.t < REDIRECT_GUARD_WINDOW_MS) count = raw.n;
+  } catch (e) { /* تجاهل */ }
+  count += 1;
+
+  if (count > REDIRECT_GUARD_MAX) {
+    showAuthLoopError(reason);
+    return; // نوقف — ما في تحويل تاني
+  }
+
+  try { sessionStorage.setItem(REDIRECT_GUARD_KEY, JSON.stringify({ n: count, t: Date.now() })); } catch (e) {}
   const next = encodeURIComponent('https://hostaka.fun/chat');
   location.href = `https://hostaka.fun/login?next=${next}`;
 }
@@ -119,13 +163,21 @@ function redirectToHostakaLogin() {
  */
 async function requireAuthPageAsync() {
   await pullSessionFromOauthRelay();
-  if (!Api.token()) { redirectToHostakaLogin(); return null; }
+  if (!Api.token()) { redirectToHostakaLogin('لا يوجد توكن محلي ولا بالوسيط المشترك'); return null; }
   try {
     const me = await Api.get('/auth/me');
+    // نجح التحقق — نصفّر عدّاد الحلقة عشان لا يتراكم من محاولات قديمة فاشلة
+    try { sessionStorage.removeItem(REDIRECT_GUARD_KEY); } catch (e) {}
     Api.setCachedUser(me);
     return me;
   } catch (e) {
-    if (e.status === 401) { redirectToHostakaLogin(); return null; }
+    if (e.status === 401) {
+      // توكن مرفوض من السيرفر — نمسحه محلياً عشان ما نعيد إرساله بنفس
+      // الحلقة، ونسمح لمحاولة تالية (لو حصلت) تاخذ توكن جديد بدل القديم.
+      Api.clearSession();
+      redirectToHostakaLogin(e.data?.error || 'رفض 401 من /api/auth/me');
+      return null;
+    }
     throw e;
   }
 }
