@@ -1,20 +1,25 @@
 {
-  "name": "messaging-system",
+  "name": "error-403-page",
   "version": "1.0.0",
-  "description": "Standalone real-time-ish messaging + groups system (DMs, group chat, E2E encryption, reactions, typing).",
+  "description": "A beautiful 403 Forbidden error page with Three.js animation",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
+  "keywords": [
+    "403",
+    "error-page",
+    "threejs",
+    "forbidden",
+    "arabic"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
-    "@libsql/client": "^0.14.0",
-    "bcryptjs": "^2.4.3",
-    "cookie-parser": "^1.4.6",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2",
-    "uuid": "^9.0.0"
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
