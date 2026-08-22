@@ -172,7 +172,7 @@ async function openDM(username, otherId) {
       ? `<img src="${escapeHtml(profile.avatar)}">` : avatarInitial(activeChat.displayName);
   } catch { /* تجاهل، خلي الاسم كما هو */ }
 
-  await refreshDM();
+  await refreshDM(true);
   startPolling(refreshDM, 2500);
   startTypingPolling();
 }
@@ -196,7 +196,7 @@ async function openGroup(id) {
     document.getElementById('threadSub').textContent = `${group.members.length} أعضاء`;
     setReply(null);
 
-    await refreshGroup();
+    await refreshGroup(true);
     startPolling(refreshGroup, 2500);
     startTypingPolling();
   } catch (e) {
@@ -219,21 +219,31 @@ function chatKey() {
 }
 
 // ================= Rendering messages =================
-async function refreshDM() {
+async function refreshDM(showErrors) {
   if (!activeChat || activeChat.type !== 'dm') return;
   try {
     const msgs = await Api.get('/messages/' + encodeURIComponent(activeChat.username));
     await renderMessages(msgs, 'dm');
     loadConversations();
-  } catch (e) { /* تجاهل أخطاء الاستطلاع الدوري */ }
+  } catch (e) {
+    // كنا نبلع أي خطأ هون بصمت (حتى بالتحميل الأول لفتح المحادثة، مو بس
+    // الاستطلاع الدوري) — فلو فشل الطلب (504 مثلاً) ما يظهر أي أثر
+    // للمستخدم، تبان الرسائل "مو موجودة" وهي فعلياً موجودة بس الطلب فشل.
+    // نعرض الخطأ الحقيقي الآن (توست + كونسول) بدل الإخفاء الكامل.
+    console.error('[orbithub] فشل تحميل الرسائل:', e);
+    if (showErrors) showToast('تعذر تحميل الرسائل: ' + e.message, true);
+  }
 }
 
-async function refreshGroup() {
+async function refreshGroup(showErrors) {
   if (!activeChat || activeChat.type !== 'group') return;
   try {
     const msgs = await Api.get(`/groups/${activeChat.id}/messages`);
     await renderMessages(msgs, 'group');
-  } catch (e) { /* تجاهل */ }
+  } catch (e) {
+    console.error('[orbithub] فشل تحميل رسائل المجموعة:', e);
+    if (showErrors) showToast('تعذر تحميل الرسائل: ' + e.message, true);
+  }
 }
 
 async function renderMessages(msgs, type) {

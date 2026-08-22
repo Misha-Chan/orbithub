@@ -31,7 +31,11 @@ router.get('/reactions', asyncHandler(async (req, res) => {
 router.get('/:username', asyncHandler(async (req, res) => {
   const other = await users.getUserByUsername(req.params.username);
   if (!other) throw new ApiError(404, 'غير موجود');
-  await msgs.markRead(other.id, req.user.id);
+  // نفس نمط موجود أصلاً بـ Hostaka (requireAuth هناك): ما ننتظر عملية
+  // "تعليم كمقروءة" قبل إرجاع الرسائل — هذا استطلاع دوري كل 2.5 ثانية،
+  // فأي تأخير إضافي هون (قفل كتابة، بطء عرضي) يتراكم ويسبب مهلة/504.
+  // القراءة نفسها لا تتأثر: نرجّع الرسائل فوراً، والتحديث يصير بالخلفية.
+  msgs.markRead(other.id, req.user.id).catch((e) => console.error('markRead failed:', e));
   res.json(await msgs.getConversation(req.user.id, other.id, {
     limit: Number(req.query.limit) || 200,
     beforeId: req.query.before ? Number(req.query.before) : null,
