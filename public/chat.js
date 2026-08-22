@@ -13,7 +13,7 @@ let encryptionEnabled = false;
 
 function init() {
   document.getElementById('meBox').innerHTML =
-    `<div class="avatar">${avatarInitial(me.display_name || me.username)}</div><span>${escapeHtml(me.display_name || me.username)}</span>`;
+    `<div class="avatar">${me.avatar ? `<img src="${escapeHtml(me.avatar)}">` : avatarInitial(me.display_name || me.username)}</div><span>${escapeHtml(me.display_name || me.username)}</span>`;
 
   document.getElementById('logoutBtn').onclick = () => { Api.clearSession(); location.href = 'https://hostaka.fun'; };
 
@@ -168,6 +168,8 @@ async function openDM(username, otherId) {
     activeChat.otherId = profile.id;
     activeChat.displayName = profile.display_name || profile.username;
     document.getElementById('threadName').textContent = activeChat.displayName;
+    document.getElementById('threadAvatar').innerHTML = profile.avatar
+      ? `<img src="${escapeHtml(profile.avatar)}">` : avatarInitial(activeChat.displayName);
   } catch { /* تجاهل، خلي الاسم كما هو */ }
 
   await refreshDM();
@@ -187,7 +189,9 @@ async function openGroup(id) {
     document.querySelector('.app').classList.add('chat-open');
     document.getElementById('encryptToggleWrap').style.display = 'none';
     document.getElementById('groupMembersBtn').style.display = 'inline-block';
-    document.getElementById('threadAvatar').innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+    document.getElementById('threadAvatar').innerHTML = group.avatar
+      ? `<img src="${escapeHtml(group.avatar)}">`
+      : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
     document.getElementById('threadName').textContent = group.name;
     document.getElementById('threadSub').textContent = `${group.members.length} أعضاء`;
     setReply(null);
@@ -588,13 +592,14 @@ async function openMembersModal() {
 
 function renderMembers(members) {
   const canManage = ['owner', 'admin'].includes(activeChat.myRole);
+  const removeSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   document.getElementById('membersList').innerHTML = members.map((m) => `
     <div class="member-row">
-      <div class="avatar" style="width:28px;height:28px;font-size:12px">${avatarInitial(m.display_name || m.username)}</div>
+      <div class="avatar" style="width:28px;height:28px;font-size:12px">${m.avatar ? `<img src="${escapeHtml(m.avatar)}">` : avatarInitial(m.display_name || m.username)}</div>
       <span>${escapeHtml(m.nickname || m.display_name || m.username)}</span>
       <span class="member-role">${roleLabel(m.role)}</span>
       ${canManage && m.role !== 'owner' && m.user_id !== me.id
-        ? `<button class="icon-btn" data-remove="${m.user_id}" title="إزالة">✕</button>` : ''}
+        ? `<button class="icon-btn" data-remove="${m.user_id}" title="إزالة">${removeSvg}</button>` : ''}
     </div>
   `).join('');
   document.querySelectorAll('[data-remove]').forEach((btn) => {
