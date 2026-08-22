@@ -21,6 +21,22 @@ app.use(cookieParser());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+/**
+ * بوابة /chat على hostaka.fun تحوّل المستخدم لـ
+ * https://orbithub.hostaka.fun/chat?token=... (راجع sendSubdomainRedirect
+ * بمشروع hostaka-main) — يعني /chat (بدون .html) لازم يكون مسار حقيقي
+ * هنا، مو بس اسم ملف. express.static وحده ما يعرف يوصّل /chat لـ
+ * chat.html (هو يبحث عن ملف اسمه "chat" بالضبط، وما يلاقيه، فيرجّع 404).
+ * هذا كان سبب الـ 404 اللي كان يطلع بعد التحويل من Hostaka.
+ */
+app.get('/chat', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'chat.html'));
+});
+
+// أي رابط قديم لجذر الموقع يوديه لنفس صفحة الدردشة (لا يوجد صفحة هبوط
+// منفصلة بـ orbithub — هو فرع مراسلات فقط).
+app.get('/', (req, res) => res.redirect('/chat'));
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
