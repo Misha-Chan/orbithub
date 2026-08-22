@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="refresh" content="0; url=https://hostaka.fun/login?next=https%3A%2F%2Fhostaka.fun%2Fchat">
+<title>تحويل...</title>
+</head>
+<body>
+  <!--
+    orbithub ما عاد فيه تسجيل دخول مستقل. أي زيارة قديمة لـ /login.html
+    تُحوَّل لصفحة دخول Hostaka مع ?next=/chat. لو المستخدم مسجّل دخول
+    بـ Hostaka أصلاً، login.js يكتشف هذا فوراً ويحوّله بصمت عبر بوابة
+    /chat (نفس أسلوب aethercast/console) لـ orbithub.hostaka.fun بتوكن
+    جاهز؛ ولو مو مسجّل دخول، يشوف فورم الدخول الحقيقي ثم يرجع تلقائياً.
+  -->
+  <script>location.href = 'https://hostaka.fun/login?next=' + encodeURIComponent('https://hostaka.fun/chat');</script>
+  <p>جاري التحويل...</p>
+</body>
+</html>

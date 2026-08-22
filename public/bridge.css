@@ -1,0 +1,53 @@
+/* =========================================================================
+   bridge.css — يربط أسماء المتغيرات القديمة في orbithub (--bg-panel،
+   --accent، --text-dim...) بنظام تصميم Hostaka الموحّد (theme.css).
+   الهدف: توحيد الشكل بصرياً مع Hostaka (بما فيه البني كلون أساسي والوضع
+   الليلي) بدون إعادة كتابة كل قاعدة CSS موجودة بـ chat.css/shared.css —
+   فقط تحويل أسماء المتغيرات القديمة لتشير لنفس قيم Hostaka.
+   حمّل هذا الملف بعد theme.css وقبل shared.css/chat.css في كل صفحة.
+   ========================================================================= */
+
+:root, html {
+  --bg-panel: var(--card);
+  --bg-elevated: var(--primary-light);
+  --text-dim: var(--muted);
+  --accent: var(--primary);
+  --accent-h: var(--primary-h);
+  --accent-contrast: #ffffff;
+  --accent-dim: var(--primary-light);
+  --radius: var(--radius-lg);
+}
+
+body {
+  font-family: var(--font-family);
+}
+
+/* عناصر الإدخال والأزرار العامة تتبع نفس أسلوب Hostaka */
+input, textarea, select {
+  font-family: var(--font-family);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+input:focus, textarea:focus, select:focus { border-color: var(--primary-border); }
+
+.btn {
+  font-family: var(--font-family);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-h); }
+.btn-ghost { background: var(--primary-light); color: var(--primary); }
+.btn-ghost:hover { background: var(--primary-mid); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
