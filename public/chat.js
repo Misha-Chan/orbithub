@@ -291,7 +291,12 @@ async function renderOneMessage(m, type) {
   const senderName = type === 'group' ? m.from_name : (mine ? '' : activeChat.displayName);
   const rawContent = type === 'dm' ? await decryptIfNeeded(m) : m.content;
   const content = window.EmojiFluent ? EmojiFluent.render(escapeHtml(rawContent)) : escapeHtml(rawContent);
-  const reactions = groupReactions(m._reactions || []);
+  // ملاحظة: التفاعلات (عدد كل نوع + تفاعل المستخدم الحالي) تُحمَّل وتُحدَّث
+  // بشكل منفصل بعد الرسم عبر applyReactionCounts() (تبحث عن
+  // data-reactions-for بالـ DOM وتملأها) — مو من هون. كان فيه سطر ميت هنا
+  // يستدعي groupReactions() اللي أصلاً مو معرّفة بأي مكان بالمشروع (خطأ
+  // ReferenceError كان يوقف رسم كل الرسائل بصمت لأن الخطأ يرفض الـ
+  // Promise.all كامل بـ renderMessages، وrefreshDM كانت تبلعه). حذفته.
 
   return `
     <div class="msg-row ${mine ? 'mine' : 'theirs'}" data-msgid="${m.id}">
