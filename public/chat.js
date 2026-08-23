@@ -57,6 +57,9 @@ function init() {
   document.getElementById('groupMembersBtn').onclick = openMembersModal;
   document.getElementById('membersClose').onclick = () => toggleModal('membersModal', false);
   document.getElementById('addMemberBtn').onclick = addMemberToGroup;
+  document.getElementById('threadTitleClickable').onclick = (e) => openChatMenu(e);
+  document.getElementById('chatMenuBackdrop').onclick = closeChatMenu;
+  document.getElementById('mediaClose').onclick = () => toggleModal('mediaModal', false);
 
   document.getElementById('encryptToggle').addEventListener('change', onEncryptToggle);
   document.getElementById('pinCancel').onclick = () => toggleModal('pinModal', false);
@@ -790,21 +793,219 @@ async function openMembersModal() {
 
 function renderMembers(members) {
   const canManage = ['owner', 'admin'].includes(activeChat.myRole);
-  const removeSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  const kebabSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+
   document.getElementById('membersList').innerHTML = members.map((m) => `
-    <div class="member-row">
-      <div class="avatar" style="width:28px;height:28px;font-size:12px">${m.avatar ? `<img src="${escapeHtml(m.avatar)}">` : avatarInitial(m.display_name || m.username)}</div>
-      <span>${escapeHtml(m.nickname || m.display_name || m.username)}</span>
+    <div class="member-row" data-uid="${m.user_id}">
+      <div class="avatar member-avatar" style="width:28px;height:28px;font-size:12px" data-username="${escapeHtml(m.username)}">${m.avatar ? `<img src="${escapeHtml(m.avatar)}">` : avatarInitial(m.display_name || m.username)}</div>
+      <span class="member-name" data-username="${escapeHtml(m.username)}">${escapeHtml(m.nickname || m.display_name || m.username)}</span>
       <span class="member-role">${roleLabel(m.role)}</span>
-      ${canManage && m.role !== 'owner' && m.user_id !== me.id
-        ? `<button class="icon-btn" data-remove="${m.user_id}" title="إزالة">${removeSvg}</button>` : ''}
+      <button class="member-kebab" data-kebab="${m.user_id}" title="خيارات">${kebabSvg}</button>
     </div>
   `).join('');
-  document.querySelectorAll('[data-remove]').forEach((btn) => {
-    btn.onclick = () => removeMember(Number(btn.dataset.remove));
+
+  document.querySelectorAll('.member-avatar, .member-name').forEach((el) => {
+    el.onclick = () => viewProfile(el.dataset.username);
+  });
+
+  document.querySelectorAll('[data-kebab]').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const uid = Number(btn.dataset.kebab);
+      const m = members.find((mm) => mm.user_id === uid);
+      openMemberSubmenu(btn, m, canManage);
+    };
   });
 }
+
+function openMemberSubmenu(anchorBtn, m, canManage) {
+  document.querySelectorAll('.member-submenu').forEach((el) => el.remove());
+  const isSelf = m.user_id === me.id;
+  const isOwner = m.role === 'owner';
+  const items = [];
+
+  if (isSelf || canManage) {
+    items.push(`<button data-sub="nick">تعيين كنية</button>`);
+  }
+  if (canManage && !isOwner && !isSelf) {
+    items.push(m.role === 'admin'
+      ? `<button data-sub="demote">إزالة الإشراف</button>`
+      : `<button data-sub="promote">تعيين كمشرف</button>`);
+    items.push(`<button data-sub="kick" class="danger">طرد من المجموعة</button>`);
+  }
+  if (!items.length) return;
+
+  const menu = document.createElement('div');
+  menu.className = 'member-submenu';
+  menu.innerHTML = items.join('');
+  anchorBtn.closest('.member-row').appendChild(menu);
+
+  menu.querySelectorAll('button[data-sub]').forEach((b) => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      menu.remove();
+      if (b.dataset.sub === 'nick') await setGroupMemberNicknamePrompt(m);
+      else if (b.dataset.sub === 'promote') await setGroupMemberRole(m.user_id, 'admin');
+      else if (b.dataset.sub === 'demote') await setGroupMemberRole(m.user_id, 'member');
+      else if (b.dataset.sub === 'kick') await removeMember(m.user_id);
+    };
+  });
+
+  setTimeout(() => {
+    document.addEventListener('click', function closeOnce() {
+      menu.remove();
+      document.removeEventListener('click', closeOnce);
+    }, { once: true });
+  }, 0);
+}
+
+async function setGroupMemberNicknamePrompt(m) {
+  const nickname = prompt(`كنية ${m.display_name || m.username} (تظهر عند جميع أعضاء المجموعة):`, m.nickname || '');
+  if (nickname === null) return;
+  try {
+    await Api.put(`/groups/${activeChat.id}/members/${m.user_id}/nickname`, { nickname: nickname.trim() });
+    const group = await Api.get('/groups/' + activeChat.id);
+    renderMembers(group.members);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function setGroupMemberRole(userId, role) {
+  try {
+    await Api.put(`/groups/${activeChat.id}/members/${userId}/role`, { role });
+    const group = await Api.get('/groups/' + activeChat.id);
+    activeChat.myRole = group.myRole;
+    renderMembers(group.members);
+    showToast(role === 'admin' ? 'تم تعيينه كمشرف' : 'تم إزالة الإشراف');
+  } catch (e) { showToast(e.message, true); }
+}
 function roleLabel(r) { return { owner: 'مالك', admin: 'مشرف', member: 'عضو' }[r] || r; }
+
+// ================= قائمة خيارات رأس المحادثة =================
+function closeChatMenu() {
+  document.getElementById('chatMenu').style.display = 'none';
+  document.getElementById('chatMenuBackdrop').style.display = 'none';
+}
+
+function openChatMenu(e) {
+  if (!activeChat) return;
+  const icons = {
+    nick: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+    profile: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    block: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>',
+    flag: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+    media: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
+    delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+    members: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    addMember: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>',
+  };
+
+  const items = [];
+  if (activeChat.type === 'dm') {
+    items.push(`<button data-act="nick">${icons.nick}تعيين الكنية</button>`);
+    items.push(`<button data-act="profile">${icons.profile}عرض الملف الشخصي</button>`);
+    items.push(`<button data-act="media">${icons.media}عرض الوسائط</button>`);
+    items.push('<hr>');
+    items.push(`<button data-act="block" class="danger">${icons.block}حظر المستخدم</button>`);
+    items.push(`<button data-act="report" class="danger">${icons.flag}الإبلاغ عن المحادثة</button>`);
+  } else {
+    items.push(`<button data-act="members">${icons.members}عرض الأعضاء وتعيين الكنيات</button>`);
+    items.push(`<button data-act="addmember">${icons.addMember}إضافة عضو</button>`);
+    items.push(`<button data-act="media">${icons.media}عرض الوسائط</button>`);
+    items.push('<hr>');
+    items.push(`<button data-act="report" class="danger">${icons.flag}الإبلاغ عن المحادثة</button>`);
+    items.push(`<button data-act="delete" class="danger">${icons.delete}حذف المحادثة</button>`);
+  }
+
+  const menu = document.getElementById('chatMenu');
+  const backdrop = document.getElementById('chatMenuBackdrop');
+  menu.innerHTML = items.join('');
+  backdrop.style.display = 'block';
+  menu.style.display = 'block';
+
+  const anchor = document.getElementById('threadTitleClickable').getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  const left = Math.min(anchor.left, window.innerWidth - menuRect.width - 8);
+  const top = Math.min(anchor.bottom + 6, window.innerHeight - menuRect.height - 8);
+  menu.style.left = Math.max(8, left) + 'px';
+  menu.style.top = top + 'px';
+
+  menu.querySelectorAll('button[data-act]').forEach((btn) => {
+    btn.onclick = () => {
+      closeChatMenu();
+      const act = btn.dataset.act;
+      if (act === 'nick') setDmNicknamePrompt();
+      else if (act === 'profile') viewProfile(activeChat.username);
+      else if (act === 'block') blockCurrentDmUser();
+      else if (act === 'report') reportConversation();
+      else if (act === 'media') openMediaGallery();
+      else if (act === 'members') openMembersModal();
+      else if (act === 'addmember') { openMembersModal().then(() => document.getElementById('addMemberInput')?.focus()); }
+      else if (act === 'delete') onDeleteConversation();
+    };
+  });
+}
+
+function viewProfile(username) {
+  window.open('https://hostaka.fun/profile?u=' + encodeURIComponent(username), '_blank');
+}
+
+async function setDmNicknamePrompt() {
+  if (!activeChat || activeChat.type !== 'dm') return;
+  try {
+    const current = await Api.get('/messages/' + encodeURIComponent(activeChat.username) + '/nickname');
+    const nickname = prompt('الكنية (تظهر عندك وعند صديقك بهذه المحادثة):', current.nickname || '');
+    if (nickname === null) return;
+    await Api.put('/messages/' + encodeURIComponent(activeChat.username) + '/nickname', { nickname: nickname.trim() });
+    document.getElementById('threadName').textContent = nickname.trim() || activeChat.displayName;
+    showToast('تم تحديث الكنية');
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function blockCurrentDmUser() {
+  if (!activeChat || activeChat.type !== 'dm') return;
+  if (!confirm(`حظر ${activeChat.displayName || activeChat.username}؟ لن يقدر يراسلك بعدها.`)) return;
+  try {
+    await Api.post('/settings/block/' + encodeURIComponent(activeChat.username));
+    showToast('تم حظر المستخدم');
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function reportConversation() {
+  const reason = prompt('سبب الإبلاغ عن هذه المحادثة:');
+  if (reason === null || !reason.trim()) return;
+  try {
+    const payload = activeChat.type === 'dm'
+      ? {
+          target_id: activeChat.otherId || null,
+          target_owner_username: activeChat.username,
+          subject: `محادثة مع ${activeChat.displayName || activeChat.username}`,
+          reason: reason.trim(),
+        }
+      : {
+          target_id: activeChat.id,
+          target_owner_username: null,
+          subject: `مجموعة: ${activeChat.name}`,
+          reason: reason.trim(),
+        };
+    await Api.post('/reports', payload);
+    showToast('تم إرسال البلاغ، شكراً لك');
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function openMediaGallery() {
+  if (!activeChat) return;
+  try {
+    const media = activeChat.type === 'dm'
+      ? await Api.get('/messages/' + encodeURIComponent(activeChat.username) + '/media')
+      : await Api.get(`/groups/${activeChat.id}/media`);
+    const grid = document.getElementById('mediaGrid');
+    grid.innerHTML = media.length
+      ? media.map((m) => `<img src="${escapeHtml(m.image)}" loading="lazy">`).join('')
+      : '<div class="media-empty">ما فيه صور مشتركة بهذه المحادثة بعد</div>';
+    grid.querySelectorAll('img').forEach((img) => { img.onclick = () => window.open(img.src, '_blank'); });
+    toggleModal('mediaModal', true);
+  } catch (e) { showToast(e.message, true); }
+}
 
 async function addMemberToGroup() {
   const input = document.getElementById('addMemberInput');

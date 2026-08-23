@@ -55,10 +55,12 @@
             <button class="icon-btn back-btn" id="backToListBtn" title="رجوع">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             </button>
-            <div class="avatar" id="threadAvatar"></div>
-            <div>
-              <div id="threadName" class="thread-name"></div>
-              <div id="threadSub" class="thread-sub"></div>
+            <div class="thread-title-clickable" id="threadTitleClickable" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <div class="avatar" id="threadAvatar"></div>
+              <div class="thread-title-info" id="threadTitleInfo">
+                <div id="threadName" class="thread-name"></div>
+                <div id="threadSub" class="thread-sub"></div>
+              </div>
             </div>
           </div>
           <div class="thread-actions">
@@ -143,9 +145,24 @@
     </div>
   </div>
 
+  <!-- قائمة خيارات رأس المحادثة (اسم/صورة المستخدم أو المجموعة) -->
+  <div id="chatMenuBackdrop" class="msg-menu-backdrop" style="display:none"></div>
+  <div id="chatMenu" class="msg-menu chat-menu" style="display:none"></div>
+
   <!-- قائمة خيارات الرسالة (ضغط مطوّل بالهاتف / ضغطتين بالديسكتوب) -->
   <div id="msgMenuBackdrop" class="msg-menu-backdrop" style="display:none"></div>
   <div id="msgMenu" class="msg-menu" style="display:none"></div>
+
+  <!-- معرض الوسائط -->
+  <div id="mediaModal" class="modal-overlay" style="display:none">
+    <div class="modal media-modal">
+      <h3>الوسائط</h3>
+      <div id="mediaGrid" class="media-grid"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="mediaClose">إغلاق</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/shared.js"></script>
   <script src="/crypto.js"></script>

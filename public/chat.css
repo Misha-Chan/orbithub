@@ -147,3 +147,35 @@
 .msg-menu button.danger { color: var(--danger); }
 .msg-menu button svg { flex-shrink: 0; }
 .msg-menu hr { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+/* قائمة خيارات رأس المحادثة: نفس شكل .msg-menu بس أوسع شوي وموضعنة تحت الهيدر */
+.chat-menu { min-width: 220px; }
+
+/* معرض الوسائط */
+.media-modal { width: min(480px, calc(100vw - 32px)); }
+.media-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  max-height: 360px; overflow-y: auto; margin-bottom: 12px;
+}
+.media-grid img {
+  width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm);
+  cursor: pointer; display: block;
+}
+.media-empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 30px 0; grid-column: 1 / -1; }
+
+/* صف عضو محسّن: زر ⋮ لإدارة العضو */
+.member-row { position: relative; }
+.member-row .avatar, .member-row span:first-of-type { cursor: pointer; }
+.member-kebab { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 4px; }
+.member-kebab:hover { color: var(--text); }
+.member-submenu {
+  position: absolute; left: 0; top: 100%; z-index: 5; min-width: 150px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.member-submenu button {
+  display: block; width: 100%; padding: 9px 12px; border: none; background: none;
+  text-align: right; font-size: 13px; color: var(--text); cursor: pointer;
+}
+.member-submenu button:hover { background: var(--primary-light); }
+.member-submenu button.danger { color: var(--danger); }
