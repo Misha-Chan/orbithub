@@ -54,11 +54,13 @@
 .msg-row.mine { align-self: flex-start; align-items: flex-start; }
 .msg-row.theirs { align-self: flex-end; align-items: flex-end; }
 .msg-bubble {
-  background: var(--bg-elevated); padding: 9px 13px; border-radius: 16px; font-size: 14.5px; line-height: 1.5;
+  padding: 9px 13px; border-radius: 16px; font-size: 14.5px; line-height: 1.5;
   position: relative; word-break: break-word;
 }
-.msg-row.mine .msg-bubble { background: var(--accent-dim); border-bottom-left-radius: 4px; }
-.msg-row.theirs .msg-bubble { border-bottom-right-radius: 4px; }
+/* لونين مختلفين فعليًا للتمييز بين رسالتك ورسالة الطرف الآخر (كانا يستخدمان
+   نفس المتغير --primary-light بالخطأ فيطلعان بنفس اللون تقريبًا) */
+.msg-row.mine .msg-bubble { background: var(--primary-mid); border-bottom-left-radius: 4px; }
+.msg-row.theirs .msg-bubble { background: var(--card); border: 1px solid var(--border); border-bottom-right-radius: 4px; }
 .msg-bubble img { max-width: 220px; border-radius: 10px; display: block; margin-top: 6px; }
 .msg-meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
 .msg-reactions { display: none; gap: 3px; margin-top: 4px; }
@@ -78,7 +80,7 @@
 .reply-bar button { background: none; border: none; color: var(--text-dim); cursor: pointer; }
 
 .composer { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
-.composer input#messageInput { flex: 1; }
+.composer input#messageInput { flex: 1; min-width: 0; }
 .composer #attachImageBtn { flex-shrink: 0; }
 .composer .image-preview-name {
   max-width: 110px; font-size: 11.5px; color: var(--primary);
