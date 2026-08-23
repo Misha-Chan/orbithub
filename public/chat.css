@@ -128,3 +128,22 @@
   .conv-last { max-width: 130px; }
   .composer .image-preview-name { max-width: 60px; }
 }
+
+/* قائمة خيارات الرسالة (ضغط مطوّل بالهاتف / ضغطتين بالديسكتوب) */
+.msg-menu-backdrop { position: fixed; inset: 0; z-index: 998; background: transparent; }
+.msg-menu {
+  position: fixed; z-index: 999; min-width: 170px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  animation: msg-menu-in .12s ease;
+}
+@keyframes msg-menu-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+.msg-menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 14px; border: none; background: none; text-align: right;
+  font-family: var(--font-family); font-size: 13.5px; color: var(--text); cursor: pointer;
+}
+.msg-menu button:hover { background: var(--primary-light); }
+.msg-menu button.danger { color: var(--danger); }
+.msg-menu button svg { flex-shrink: 0; }
+.msg-menu hr { border: none; border-top: 1px solid var(--border); margin: 0; }

@@ -299,6 +299,9 @@ async function renderMessages(msgs, type) {
         openMsgId = (openMsgId === id) ? null : id;
         applyOpenMsgState(el);
       };
+      const msgId = Number(bubble.closest('.msg-row').dataset.msgid);
+      const msgObj = msgs.find((mm) => mm.id === msgId);
+      if (msgObj) bindMsgContextTrigger(bubble, msgObj, type);
     });
     applyOpenMsgState(el);
 
@@ -522,6 +525,121 @@ async function reactTo(id, emoji, type) {
     }
   } catch (e) { showToast(e.message, true); }
 }
+
+async function reportMsg(id, type, m) {
+  const reason = prompt('سبب الإبلاغ عن هذه الرسالة:');
+  if (reason === null || !reason.trim()) return;
+  try {
+    const ownerUsername = type === 'dm'
+      ? (m.from_id === me.id ? me.username : activeChat.username)
+      : null; // بالمجموعات ما عندنا username المرسل مباشرة بصف الرسالة، نتركها فاضية (حقل اختياري بجدول Hostaka)
+    await Api.post('/reports', {
+      target_id: id,
+      target_owner_username: ownerUsername,
+      subject: type === 'dm' ? `رسالة من محادثة مع ${activeChat.displayName || activeChat.username}` : `رسالة بمجموعة ${activeChat.name}`,
+      reason: reason.trim(),
+    });
+    showToast('تم إرسال البلاغ، شكراً لك');
+  } catch (e) { showToast(e.message, true); }
+}
+
+// ================= قائمة خيارات الرسالة (ضغط مطوّل/ضغطتين) =================
+function closeMsgMenu() {
+  document.getElementById('msgMenu').style.display = 'none';
+  document.getElementById('msgMenuBackdrop').style.display = 'none';
+}
+
+function openMsgMenu(m, type, x, y) {
+  const mine = type === 'group' ? m.user_id === me.id : m.from_id === me.id;
+  const menu = document.getElementById('msgMenu');
+  const backdrop = document.getElementById('msgMenuBackdrop');
+
+  const icons = {
+    reply: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>',
+    edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+    delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+    flag: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+  };
+
+  const items = [];
+  items.push(`<button data-act="reply">${icons.reply}رد</button>`);
+  if (mine) {
+    items.push(`<button data-act="edit">${icons.edit}تعديل</button>`);
+    items.push(`<button data-act="delete" class="danger">${icons.delete}حذف</button>`);
+  } else {
+    items.push(`<button data-act="report" class="danger">${icons.flag}إبلاغ</button>`);
+  }
+  menu.innerHTML = items.join('<hr>');
+
+  backdrop.style.display = 'block';
+  menu.style.display = 'block';
+  // نموضعها بعد ما تُعرض عشان نعرف أبعادها الفعلية، ونخليها ما تطلع بره الشاشة
+  const menuRect = menu.getBoundingClientRect();
+  const left = Math.min(Math.max(8, x - menuRect.width / 2), window.innerWidth - menuRect.width - 8);
+  const top = Math.min(Math.max(8, y), window.innerHeight - menuRect.height - 8);
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+
+  menu.querySelectorAll('button[data-act]').forEach((btn) => {
+    btn.onclick = () => {
+      closeMsgMenu();
+      const act = btn.dataset.act;
+      if (act === 'reply') setReply({ id: m.id, preview: (m.content || '').slice(0, 60) });
+      else if (act === 'edit') startEdit(m.id, type);
+      else if (act === 'delete') deleteMsg(m.id, type);
+      else if (act === 'report') reportMsg(m.id, type, m);
+    };
+  });
+}
+
+document.getElementById('msgMenuBackdrop').onclick = closeMsgMenu;
+
+/**
+ * يربط ضغط مطوّل (باللمس، ~500ms) أو ضغطتين متتاليتين (بالماوس) بفقاعة
+ * رسالة لفتح قائمة الخيارات (رد/تعديل/حذف/إبلاغ) كنافذة منبثقة قرب موضع
+ * الضغط. الضغطة العادية (tap/click) القصيرة تبقى تفتح/تسكّر التفاعلات
+ * السريعة تحت الرسالة (سلوك موجود أصلاً)، فما نبطّلها — بس نمنع فتح
+ * القائمة المنبثقة بالخطأ أثناء سحب/تمرير عادي.
+ */
+function bindMsgContextTrigger(bubble, m, type) {
+  let pressTimer = null;
+  let longPressFired = false;
+  let touchStart = null;
+
+  bubble.addEventListener('touchstart', (e) => {
+    longPressFired = false;
+    const t = e.touches[0];
+    touchStart = { x: t.clientX, y: t.clientY };
+    pressTimer = setTimeout(() => {
+      longPressFired = true;
+      openMsgMenu(m, type, t.clientX, t.clientY);
+    }, 500);
+  }, { passive: true });
+
+  bubble.addEventListener('touchmove', (e) => {
+    if (!touchStart) return;
+    const t = e.touches[0];
+    // لو تحرّك الإصبع أكتر من شوي، هذا سحب/تمرير عادي، مو ضغط مطوّل
+    if (Math.abs(t.clientX - touchStart.x) > 10 || Math.abs(t.clientY - touchStart.y) > 10) {
+      clearTimeout(pressTimer);
+    }
+  }, { passive: true });
+
+  bubble.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
+    // لو فتحنا القائمة بالضغط المطوّل، نمنع click العادي اللي بعده يسكّرها فورًا
+    if (longPressFired) {
+      const blockNextClick = (e) => { e.stopPropagation(); bubble.removeEventListener('click', blockNextClick, true); };
+      bubble.addEventListener('click', blockNextClick, true);
+    }
+  });
+
+  bubble.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    openMsgMenu(m, type, e.clientX, e.clientY);
+  });
+}
+
 
 async function startEdit(id, type) {
   const newContent = prompt('عدّل الرسالة:');

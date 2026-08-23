@@ -14,6 +14,7 @@ const typingRoutes = require('./routes/typing.routes');
 const settingsRoutes = require('./routes/settings.routes');
 const usersRoutes = require('./routes/users.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const reportsRoutes = require('./routes/reports.routes');
 
 const app = express();
 app.use(cors());
@@ -47,6 +48,7 @@ app.use('/api/typing', typingRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // 404 لأي مسار API غير معروف
 app.use('/api', (req, res) => res.status(404).json({ error: 'مسار غير موجود' }));
