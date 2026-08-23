@@ -1,0 +1,84 @@
+{
+  "app": { "title": "Hostaka — Messages" },
+  "nav": { "logout": "Log out", "back": "Back" },
+  "tabs": { "dms": "Chats", "groups": "Groups" },
+  "composer": {
+    "new_chat_placeholder": "Message a user by name...",
+    "open": "Open",
+    "attach_title": "Attach image",
+    "emoji_title": "Emoji",
+    "placeholder": "Type a message...",
+    "send": "Send"
+  },
+  "empty": { "select": "Pick a chat or start a new one" },
+  "chat": {
+    "e2e_title": "End-to-end encryption",
+    "members_title": "Members",
+    "delete_conv_title": "Delete conversation",
+    "encrypted_pending": "Messages are end-to-end encrypted. Make sure your PIN is set.",
+    "private_conv": "Private conversation"
+  },
+  "pin": {
+    "title": "Enable encryption",
+    "placeholder": "6-digit code",
+    "setup_desc": "Create a 6-digit PIN to back up your encryption key. You'll need it to restore your messages on a new device.",
+    "unlock_desc": "Enter your PIN to unlock encrypted messages on this device."
+  },
+  "groups": {
+    "new": "+ New group",
+    "new_title": "New group",
+    "name_placeholder": "Group name",
+    "desc_placeholder": "Short description (optional)",
+    "none_yet": "No groups yet"
+  },
+  "members": {
+    "title": "Group members",
+    "add_placeholder": "Username to add",
+    "owner": "Owner", "admin": "Admin", "member": "Member",
+    "set_nickname": "Set nickname",
+    "promote": "Make admin",
+    "demote": "Remove admin",
+    "kick": "Remove from group",
+    "count_suffix": "members"
+  },
+  "media": { "title": "Media", "empty": "No shared images in this conversation yet" },
+  "common": {
+    "cancel": "Cancel", "confirm": "Confirm", "create": "Create",
+    "add": "Add", "close": "Close", "download": "Download"
+  },
+  "msg": {
+    "reply": "Reply", "edit": "Edit", "delete": "Delete", "report": "Report",
+    "edited": "edited"
+  },
+  "time": { "now": "now", "min": "m", "hour": "h", "day": "d" },
+  "menu": {
+    "nickname": "Set nickname",
+    "profile": "View profile",
+    "block": "Block user",
+    "report_conv": "Report conversation",
+    "media": "View media",
+    "members_nick": "View members & set nicknames",
+    "add_member": "Add member",
+    "delete_conv": "Delete conversation"
+  },
+  "prompts": {
+    "dm_nickname": "Nickname (visible to you and your friend in this chat):",
+    "group_nickname": "Nickname for {name} (visible to everyone in the group):",
+    "block_confirm": "Block {name}? They won't be able to message you.",
+    "report_message_reason": "Reason for reporting this message:",
+    "report_conv_reason": "Reason for reporting this conversation:",
+    "edit_message": "Edit message:",
+    "delete_conv_confirm": "Delete this conversation entirely? This can't be undone."
+  },
+  "toast": {
+    "nickname_updated": "Nickname updated",
+    "user_blocked": "User blocked",
+    "report_sent": "Report sent, thank you",
+    "not_an_image": "Selected file isn't an image",
+    "no_messages_yet": "No conversations yet"
+  },
+  "errors": {
+    "load_conversations": "Couldn't load conversations",
+    "load_groups": "Couldn't load groups"
+  }
+}

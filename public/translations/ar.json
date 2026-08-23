@@ -1,0 +1,84 @@
+{
+  "app": { "title": "المراسلات — Hostaka" },
+  "nav": { "logout": "تسجيل الخروج", "back": "رجوع" },
+  "tabs": { "dms": "محادثات", "groups": "مجموعات" },
+  "composer": {
+    "new_chat_placeholder": "راسل مستخدماً باسمه...",
+    "open": "فتح",
+    "attach_title": "إرفاق صورة",
+    "emoji_title": "إيموجي",
+    "placeholder": "اكتب رسالة...",
+    "send": "إرسال"
+  },
+  "empty": { "select": "اختر محادثة أو ابدأ واحدة جديدة" },
+  "chat": {
+    "e2e_title": "تشفير طرف لطرف",
+    "members_title": "الأعضاء",
+    "delete_conv_title": "حذف المحادثة",
+    "encrypted_pending": "الرسائل مشفرة بين الطرفين، يرجى التأكد من PIN",
+    "private_conv": "محادثة خاصة"
+  },
+  "pin": {
+    "title": "تفعيل التشفير",
+    "placeholder": "رمز مكوّن من 6 أرقام",
+    "setup_desc": "أنشئ رمز PIN من 6 أرقام لنسخ مفتاح التشفير احتياطياً. راح تحتاجه لاسترجاع رسائلك على جهاز جديد.",
+    "unlock_desc": "أدخل رمز PIN لفتح الرسائل المشفرة على هذا الجهاز."
+  },
+  "groups": {
+    "new": "+ مجموعة جديدة",
+    "new_title": "مجموعة جديدة",
+    "name_placeholder": "اسم المجموعة",
+    "desc_placeholder": "وصف مختصر (اختياري)",
+    "none_yet": "لا مجموعات بعد"
+  },
+  "members": {
+    "title": "أعضاء المجموعة",
+    "add_placeholder": "اسم مستخدم للإضافة",
+    "owner": "مالك", "admin": "مشرف", "member": "عضو",
+    "set_nickname": "تعيين كنية",
+    "promote": "تعيين كمشرف",
+    "demote": "إزالة الإشراف",
+    "kick": "طرد من المجموعة",
+    "count_suffix": "أعضاء"
+  },
+  "media": { "title": "الوسائط", "empty": "ما فيه صور مشتركة بهذه المحادثة بعد" },
+  "common": {
+    "cancel": "إلغاء", "confirm": "تأكيد", "create": "إنشاء",
+    "add": "إضافة", "close": "إغلاق", "download": "تحميل"
+  },
+  "msg": {
+    "reply": "رد", "edit": "تعديل", "delete": "حذف", "report": "إبلاغ",
+    "edited": "مُعدّلة"
+  },
+  "time": { "now": "الآن", "min": "د", "hour": "س", "day": "ي" },
+  "menu": {
+    "nickname": "تعيين الكنية",
+    "profile": "عرض الملف الشخصي",
+    "block": "حظر المستخدم",
+    "report_conv": "الإبلاغ عن المحادثة",
+    "media": "عرض الوسائط",
+    "members_nick": "عرض الأعضاء وتعيين الكنيات",
+    "add_member": "إضافة عضو",
+    "delete_conv": "حذف المحادثة"
+  },
+  "prompts": {
+    "dm_nickname": "الكنية (تظهر عندك وعند صديقك بهذه المحادثة):",
+    "group_nickname": "كنية {name} (تظهر عند جميع أعضاء المجموعة):",
+    "block_confirm": "حظر {name}؟ لن يقدر يراسلك بعدها.",
+    "report_message_reason": "سبب الإبلاغ عن هذه الرسالة:",
+    "report_conv_reason": "سبب الإبلاغ عن هذه المحادثة:",
+    "edit_message": "عدّل الرسالة:",
+    "delete_conv_confirm": "حذف المحادثة بالكامل؟ لا يمكن التراجع."
+  },
+  "toast": {
+    "nickname_updated": "تم تحديث الكنية",
+    "user_blocked": "تم حظر المستخدم",
+    "report_sent": "تم إرسال البلاغ، شكراً لك",
+    "not_an_image": "الملف المختار ليس صورة",
+    "no_messages_yet": "لا محادثات بعد"
+  },
+  "errors": {
+    "load_conversations": "تعذر تحميل المحادثات",
+    "load_groups": "تعذر تحميل المجموعات"
+  }
+}

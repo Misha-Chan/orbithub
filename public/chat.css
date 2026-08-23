@@ -61,7 +61,16 @@
    نفس المتغير --primary-light بالخطأ فيطلعان بنفس اللون تقريبًا) */
 .msg-row.mine .msg-bubble { background: var(--primary-mid); border-bottom-left-radius: 4px; }
 .msg-row.theirs .msg-bubble { background: var(--card); border: 1px solid var(--border); border-bottom-right-radius: 4px; }
-.msg-bubble img { max-width: 220px; border-radius: 10px; display: block; margin-top: 6px; }
+.msg-bubble img { display: none; } /* الطراز القديم — الصور صارت خارج الفقاعة (.msg-image) */
+.msg-image {
+  max-width: 260px; max-height: 320px; display: block; margin-top: 4px;
+  border-radius: 12px; cursor: pointer; border: none; background: none;
+}
+.msg-row.mine .msg-image { align-self: flex-end; }
+.msg-row.theirs .msg-image { align-self: flex-start; }
+.msg-content { display: flex; flex-direction: column; }
+.msg-row.mine .msg-content { align-items: flex-start; }
+.msg-row.theirs .msg-content { align-items: flex-end; }
 .msg-meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
 .msg-reactions { display: none; gap: 3px; margin-top: 4px; }
 .msg-reaction { background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; font-size: 12px; cursor: pointer; }
@@ -181,3 +190,12 @@
 }
 .member-submenu button:hover { background: var(--primary-light); }
 .member-submenu button.danger { color: var(--danger); }
+
+/* نافذة عرض الصورة بالحجم الكامل */
+.lightbox { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.lightbox-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.85); }
+.lightbox-body { position: relative; z-index: 1; max-width: 92vw; max-height: 88vh; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.lightbox-body img { max-width: 92vw; max-height: 76vh; border-radius: 10px; display: block; }
+.lightbox-actions { display: flex; align-items: center; gap: 10px; }
+.lightbox-actions .icon-btn { background: rgba(255,255,255,.12); color: #fff; }
+.lightbox-actions .icon-btn:hover { background: rgba(255,255,255,.22); }

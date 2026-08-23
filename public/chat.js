@@ -60,6 +60,8 @@ function init() {
   document.getElementById('threadTitleClickable').onclick = (e) => openChatMenu(e);
   document.getElementById('chatMenuBackdrop').onclick = closeChatMenu;
   document.getElementById('mediaClose').onclick = () => toggleModal('mediaModal', false);
+  document.getElementById('lightboxClose').onclick = closeImageLightbox;
+  document.querySelector('#imageLightbox .lightbox-backdrop').onclick = closeImageLightbox;
 
   document.getElementById('encryptToggle').addEventListener('change', onEncryptToggle);
   document.getElementById('pinCancel').onclick = () => toggleModal('pinModal', false);
@@ -92,7 +94,7 @@ async function loadConversations() {
   const list = document.getElementById('dmList');
   try {
     const convs = await Api.get('/messages/conversations');
-    if (!convs.length) { list.innerHTML = '<div class="empty-list">لا محادثات بعد</div>'; return; }
+    if (!convs.length) { list.innerHTML = `<div class="empty-list">${t('toast.no_messages_yet', 'لا محادثات بعد')}</div>`; return; }
     list.innerHTML = convs.map((c) => `
       <div class="conv-item" data-username="${escapeHtml(c.username)}" data-otherid="${c.id}">
         <div class="avatar">${c.avatar ? `<img src="${escapeHtml(c.avatar)}">` : avatarInitial(c.display_name || c.username)}</div>
@@ -107,7 +109,7 @@ async function loadConversations() {
       el.onclick = () => openDM(el.dataset.username, Number(el.dataset.otherid));
     });
   } catch (e) {
-    list.innerHTML = '<div class="empty-list">تعذر تحميل المحادثات</div>';
+    list.innerHTML = `<div class="empty-list">${t('errors.load_conversations', 'تعذر تحميل المحادثات')}</div>`;
   }
 }
 
@@ -115,7 +117,7 @@ async function loadGroups() {
   const list = document.getElementById('groupList');
   try {
     const groups = await Api.get('/groups');
-    if (!groups.length) { list.innerHTML = '<div class="empty-list">لا مجموعات بعد</div>'; return; }
+    if (!groups.length) { list.innerHTML = `<div class="empty-list">${t('groups.none_yet', 'لا مجموعات بعد')}</div>`; return; }
     list.innerHTML = groups.map((g) => `
       <div class="group-item" data-id="${g.id}">
         <div class="avatar">${g.avatar ? `<img src="${escapeHtml(g.avatar)}">` : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`}</div>
@@ -129,7 +131,7 @@ async function loadGroups() {
       el.onclick = () => openGroup(Number(el.dataset.id));
     });
   } catch (e) {
-    list.innerHTML = '<div class="empty-list">تعذر تحميل المجموعات</div>';
+    list.innerHTML = `<div class="empty-list">${t('errors.load_groups', 'تعذر تحميل المجموعات')}</div>`;
   }
 }
 
@@ -166,7 +168,7 @@ async function openDM(username, otherId) {
   document.getElementById('groupMembersBtn').style.display = 'none';
   document.getElementById('threadAvatar').innerHTML = avatarInitial(username);
   document.getElementById('threadName').textContent = username;
-  document.getElementById('threadSub').textContent = 'محادثة خاصة';
+  document.getElementById('threadSub').textContent = t('chat.private_conv', 'محادثة خاصة');
   setReply(null);
 
   try {
@@ -201,7 +203,7 @@ async function openGroup(id) {
       ? `<img src="${escapeHtml(group.avatar)}">`
       : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
     document.getElementById('threadName').textContent = group.name;
-    document.getElementById('threadSub').textContent = `${group.members.length} أعضاء`;
+    document.getElementById('threadSub').textContent = `${group.members.length} ${t('members.count_suffix', 'أعضاء')}`;
     setReply(null);
 
     await refreshGroup(true);
@@ -295,7 +297,7 @@ async function renderMessages(msgs, type) {
     // الخيارات (التفاعلات + رد/تعديل/حذف) ما تظهر إلا لما المستخدم يضغط
     // على الرسالة نفسها — مو دايماً ظاهرة ولا hover (اللي أصلاً ما يشتغل
     // باللمس بالجوال). ضغطة ثانية على نفس الرسالة أو بأي مكان ثاني تسكّرها.
-    el.querySelectorAll('.msg-bubble').forEach((bubble) => {
+    el.querySelectorAll('.msg-content').forEach((bubble) => {
       bubble.onclick = (e) => {
         e.stopPropagation();
         const id = Number(bubble.closest('.msg-row').dataset.msgid);
@@ -305,6 +307,12 @@ async function renderMessages(msgs, type) {
       const msgId = Number(bubble.closest('.msg-row').dataset.msgid);
       const msgObj = msgs.find((mm) => mm.id === msgId);
       if (msgObj) bindMsgContextTrigger(bubble, msgObj, type);
+    });
+    el.querySelectorAll('.msg-image').forEach((img) => {
+      img.onclick = (e) => {
+        e.stopPropagation(); // ما نخلي هذا يفتح/يسكّر التفاعلات كمان — بس يفتح نافذة الصورة
+        openImageLightbox(img.dataset.full);
+      };
     });
     applyOpenMsgState(el);
 
@@ -335,7 +343,7 @@ function applyOpenMsgState(el) {
 // أي ضغطة بره فقاعة أي رسالة تسكّر الخيارات المفتوحة حالياً (مرة وحدة،
 // مو بكل رسم — عشان ما نكرر المستمع مع كل تحديث/استطلاع دوري).
 document.addEventListener('click', (e) => {
-  if (openMsgId !== null && !e.target.closest('.msg-bubble')) {
+  if (openMsgId !== null && !e.target.closest('.msg-content')) {
     openMsgId = null;
     const el = document.getElementById('messagesEl');
     if (el) applyOpenMsgState(el);
@@ -350,7 +358,7 @@ async function decryptIfNeeded(m) {
     // PIN (فيه نسخة احتياطية على السيرفر ما استُعيدت هون بعد)، أو الطرف
     // الآخر نفسه بنفس الحالة. هذا لا يعني أي طرف "غير مفعّل للتشفير" —
     // التشفير شغّال دايمًا لكل الحسابات — بس نعرض نص توعوي بدل قفل مبهم.
-    if (!key) return 'الرسائل مشفرة بين الطرفين، يرجى التأكد من PIN';
+    if (!key) return t('chat.encrypted_pending', 'الرسائل مشفرة بين الطرفين، يرجى التأكد من PIN');
     return await MsgCrypto.decryptText(key, m.content, m.iv);
   } catch {
     return '🔒 تعذر فك تشفير هذه الرسالة';
@@ -372,19 +380,19 @@ async function renderOneMessage(m, type) {
   return `
     <div class="msg-row ${mine ? 'mine' : 'theirs'}" data-msgid="${m.id}">
       ${type === 'group' && !mine ? `<div class="conv-last" style="margin-bottom:2px">${escapeHtml(senderName)}</div>` : ''}
-      <div class="msg-bubble">
-        ${content}
-        ${m.image ? `<img src="${escapeHtml(m.image)}">` : ''}
+      <div class="msg-content">
+        ${content ? `<div class="msg-bubble">${content}</div>` : ''}
+        ${m.image ? `<img class="msg-image" src="${escapeHtml(m.image)}" data-full="${escapeHtml(m.image)}">` : ''}
       </div>
       <div class="msg-meta">
-        ${timeAgo(m.created_at)} ${m.edited ? '· مُعدّلة' : ''}
+        ${timeAgo(m.created_at)} ${m.edited ? '· ' + t('msg.edited', 'مُعدّلة') : ''}
       </div>
       <div class="msg-reactions" data-reactions-for="${m.id}">
         ${['heart', 'like', '😂', '😮'].map((emoji) => `<span class="msg-reaction" data-react data-id="${m.id}" data-emoji="${emoji}">${emojiIcon(emoji)}</span>`).join('')}
       </div>
       <div class="msg-actions">
-        <button data-reply data-id="${m.id}" data-preview="${escapeHtml((m.content || '').slice(0, 60))}">رد</button>
-        ${mine ? `<button data-edit data-id="${m.id}">تعديل</button><button data-delete data-id="${m.id}">حذف</button>` : ''}
+        <button data-reply data-id="${m.id}" data-preview="${escapeHtml((m.content || '').slice(0, 60))}">${t('msg.reply', 'رد')}</button>
+        ${mine ? `<button data-edit data-id="${m.id}">${t('msg.edit', 'تعديل')}</button><button data-delete data-id="${m.id}">${t('msg.delete', 'حذف')}</button>` : ''}
       </div>
     </div>
   `;
@@ -438,7 +446,7 @@ function onImageFileChosen(e) {
   const nameEl = document.getElementById('imagePreviewName');
   if (!file) { pendingImageFile = null; nameEl.textContent = ''; return; }
   if (!file.type.startsWith('image/')) {
-    showToast('الملف المختار ليس صورة', true);
+    showToast(t('toast.not_an_image', 'الملف المختار ليس صورة'), true);
     e.target.value = '';
     pendingImageFile = null; nameEl.textContent = '';
     return;
@@ -530,7 +538,7 @@ async function reactTo(id, emoji, type) {
 }
 
 async function reportMsg(id, type, m) {
-  const reason = prompt('سبب الإبلاغ عن هذه الرسالة:');
+  const reason = prompt(t('prompts.report_message_reason', 'سبب الإبلاغ عن هذه الرسالة:'));
   if (reason === null || !reason.trim()) return;
   try {
     const ownerUsername = type === 'dm'
@@ -542,7 +550,7 @@ async function reportMsg(id, type, m) {
       subject: type === 'dm' ? `رسالة من محادثة مع ${activeChat.displayName || activeChat.username}` : `رسالة بمجموعة ${activeChat.name}`,
       reason: reason.trim(),
     });
-    showToast('تم إرسال البلاغ، شكراً لك');
+    showToast(t('toast.report_sent', 'تم إرسال البلاغ، شكراً لك'));
   } catch (e) { showToast(e.message, true); }
 }
 
@@ -565,12 +573,12 @@ function openMsgMenu(m, type, x, y) {
   };
 
   const items = [];
-  items.push(`<button data-act="reply">${icons.reply}رد</button>`);
+  items.push(`<button data-act="reply">${icons.reply}${t('msg.reply', 'رد')}</button>`);
   if (mine) {
-    items.push(`<button data-act="edit">${icons.edit}تعديل</button>`);
-    items.push(`<button data-act="delete" class="danger">${icons.delete}حذف</button>`);
+    items.push(`<button data-act="edit">${icons.edit}${t('msg.edit', 'تعديل')}</button>`);
+    items.push(`<button data-act="delete" class="danger">${icons.delete}${t('msg.delete', 'حذف')}</button>`);
   } else {
-    items.push(`<button data-act="report" class="danger">${icons.flag}إبلاغ</button>`);
+    items.push(`<button data-act="report" class="danger">${icons.flag}${t('msg.report', 'إبلاغ')}</button>`);
   }
   menu.innerHTML = items.join('<hr>');
 
@@ -645,7 +653,7 @@ function bindMsgContextTrigger(bubble, m, type) {
 
 
 async function startEdit(id, type) {
-  const newContent = prompt('عدّل الرسالة:');
+  const newContent = prompt(t('prompts.edit_message', 'عدّل الرسالة:'));
   if (newContent === null || !newContent.trim()) return;
   try {
     if (type === 'dm') {
@@ -673,7 +681,7 @@ async function deleteMsg(id, type) {
 
 async function onDeleteConversation() {
   if (!activeChat) return;
-  if (!confirm('حذف المحادثة بالكامل؟ لا يمكن التراجع.')) return;
+  if (!confirm(t('prompts.delete_conv_confirm', 'حذف المحادثة بالكامل؟ لا يمكن التراجع.'))) return;
   try {
     if (activeChat.type === 'dm') {
       await Api.del('/messages/' + encodeURIComponent(activeChat.username));
@@ -825,13 +833,13 @@ function openMemberSubmenu(anchorBtn, m, canManage) {
   const items = [];
 
   if (isSelf || canManage) {
-    items.push(`<button data-sub="nick">تعيين كنية</button>`);
+    items.push(`<button data-sub="nick">${t('members.set_nickname', 'تعيين كنية')}</button>`);
   }
   if (canManage && !isOwner && !isSelf) {
     items.push(m.role === 'admin'
-      ? `<button data-sub="demote">إزالة الإشراف</button>`
-      : `<button data-sub="promote">تعيين كمشرف</button>`);
-    items.push(`<button data-sub="kick" class="danger">طرد من المجموعة</button>`);
+      ? `<button data-sub="demote">${t('members.demote', 'إزالة الإشراف')}</button>`
+      : `<button data-sub="promote">${t('members.promote', 'تعيين كمشرف')}</button>`);
+    items.push(`<button data-sub="kick" class="danger">${t('members.kick', 'طرد من المجموعة')}</button>`);
   }
   if (!items.length) return;
 
@@ -860,7 +868,7 @@ function openMemberSubmenu(anchorBtn, m, canManage) {
 }
 
 async function setGroupMemberNicknamePrompt(m) {
-  const nickname = prompt(`كنية ${m.display_name || m.username} (تظهر عند جميع أعضاء المجموعة):`, m.nickname || '');
+  const nickname = prompt(t('prompts.group_nickname', 'كنية {name} (تظهر عند جميع أعضاء المجموعة):').replace('{name}', m.display_name || m.username), m.nickname || '');
   if (nickname === null) return;
   try {
     await Api.put(`/groups/${activeChat.id}/members/${m.user_id}/nickname`, { nickname: nickname.trim() });
@@ -875,10 +883,10 @@ async function setGroupMemberRole(userId, role) {
     const group = await Api.get('/groups/' + activeChat.id);
     activeChat.myRole = group.myRole;
     renderMembers(group.members);
-    showToast(role === 'admin' ? 'تم تعيينه كمشرف' : 'تم إزالة الإشراف');
+    showToast(role === 'admin' ? t('members.promote', 'تم تعيينه كمشرف') : t('members.demote', 'تم إزالة الإشراف'));
   } catch (e) { showToast(e.message, true); }
 }
-function roleLabel(r) { return { owner: 'مالك', admin: 'مشرف', member: 'عضو' }[r] || r; }
+function roleLabel(r) { return { owner: t('members.owner', 'مالك'), admin: t('members.admin', 'مشرف'), member: t('members.member', 'عضو') }[r] || r; }
 
 // ================= قائمة خيارات رأس المحادثة =================
 function closeChatMenu() {
@@ -901,19 +909,19 @@ function openChatMenu(e) {
 
   const items = [];
   if (activeChat.type === 'dm') {
-    items.push(`<button data-act="nick">${icons.nick}تعيين الكنية</button>`);
-    items.push(`<button data-act="profile">${icons.profile}عرض الملف الشخصي</button>`);
-    items.push(`<button data-act="media">${icons.media}عرض الوسائط</button>`);
+    items.push(`<button data-act="nick">${icons.nick}${t('menu.nickname', 'تعيين الكنية')}</button>`);
+    items.push(`<button data-act="profile">${icons.profile}${t('menu.profile', 'عرض الملف الشخصي')}</button>`);
+    items.push(`<button data-act="media">${icons.media}${t('menu.media', 'عرض الوسائط')}</button>`);
     items.push('<hr>');
-    items.push(`<button data-act="block" class="danger">${icons.block}حظر المستخدم</button>`);
-    items.push(`<button data-act="report" class="danger">${icons.flag}الإبلاغ عن المحادثة</button>`);
+    items.push(`<button data-act="block" class="danger">${icons.block}${t('menu.block', 'حظر المستخدم')}</button>`);
+    items.push(`<button data-act="report" class="danger">${icons.flag}${t('menu.report_conv', 'الإبلاغ عن المحادثة')}</button>`);
   } else {
-    items.push(`<button data-act="members">${icons.members}عرض الأعضاء وتعيين الكنيات</button>`);
-    items.push(`<button data-act="addmember">${icons.addMember}إضافة عضو</button>`);
-    items.push(`<button data-act="media">${icons.media}عرض الوسائط</button>`);
+    items.push(`<button data-act="members">${icons.members}${t('menu.members_nick', 'عرض الأعضاء وتعيين الكنيات')}</button>`);
+    items.push(`<button data-act="addmember">${icons.addMember}${t('menu.add_member', 'إضافة عضو')}</button>`);
+    items.push(`<button data-act="media">${icons.media}${t('menu.media', 'عرض الوسائط')}</button>`);
     items.push('<hr>');
-    items.push(`<button data-act="report" class="danger">${icons.flag}الإبلاغ عن المحادثة</button>`);
-    items.push(`<button data-act="delete" class="danger">${icons.delete}حذف المحادثة</button>`);
+    items.push(`<button data-act="report" class="danger">${icons.flag}${t('menu.report_conv', 'الإبلاغ عن المحادثة')}</button>`);
+    items.push(`<button data-act="delete" class="danger">${icons.delete}${t('menu.delete_conv', 'حذف المحادثة')}</button>`);
   }
 
   const menu = document.getElementById('chatMenu');
@@ -953,25 +961,25 @@ async function setDmNicknamePrompt() {
   if (!activeChat || activeChat.type !== 'dm') return;
   try {
     const current = await Api.get('/messages/' + encodeURIComponent(activeChat.username) + '/nickname');
-    const nickname = prompt('الكنية (تظهر عندك وعند صديقك بهذه المحادثة):', current.nickname || '');
+    const nickname = prompt(t('prompts.dm_nickname', 'الكنية (تظهر عندك وعند صديقك بهذه المحادثة):'), current.nickname || '');
     if (nickname === null) return;
     await Api.put('/messages/' + encodeURIComponent(activeChat.username) + '/nickname', { nickname: nickname.trim() });
     document.getElementById('threadName').textContent = nickname.trim() || activeChat.displayName;
-    showToast('تم تحديث الكنية');
+    showToast(t('toast.nickname_updated', 'تم تحديث الكنية'));
   } catch (e) { showToast(e.message, true); }
 }
 
 async function blockCurrentDmUser() {
   if (!activeChat || activeChat.type !== 'dm') return;
-  if (!confirm(`حظر ${activeChat.displayName || activeChat.username}؟ لن يقدر يراسلك بعدها.`)) return;
+  if (!confirm(t('prompts.block_confirm', 'حظر {name}؟ لن يقدر يراسلك بعدها.').replace('{name}', activeChat.displayName || activeChat.username))) return;
   try {
     await Api.post('/settings/block/' + encodeURIComponent(activeChat.username));
-    showToast('تم حظر المستخدم');
+    showToast(t('toast.user_blocked', 'تم حظر المستخدم'));
   } catch (e) { showToast(e.message, true); }
 }
 
 async function reportConversation() {
-  const reason = prompt('سبب الإبلاغ عن هذه المحادثة:');
+  const reason = prompt(t('prompts.report_conv_reason', 'سبب الإبلاغ عن هذه المحادثة:'));
   if (reason === null || !reason.trim()) return;
   try {
     const payload = activeChat.type === 'dm'
@@ -992,6 +1000,36 @@ async function reportConversation() {
   } catch (e) { showToast(e.message, true); }
 }
 
+function openImageLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('imageLightbox').style.display = 'flex';
+  document.getElementById('lightboxDownload').onclick = async (e) => {
+    e.preventDefault();
+    // الصور مستضافة على ImgBB (نطاق مختلف)، وسمة download بالرابط وحدها
+    // ما تفرض التحميل الفعلي على روابط cross-origin (المتصفح يفتحها بس
+    // بتبويب جديد). نجيب الصورة كـ blob ونحمّلها من رابط محلي مؤقت، وهذا
+    // يفرض التحميل الحقيقي بغض النظر عن مصدر الصورة.
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = 'image-' + Date.now() + '.jpg';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+    } catch {
+      window.open(url, '_blank'); // فشل الجلب (مثلاً CORS)؟ نفتحها بتبويب جديد كحل بديل
+    }
+  };
+}
+function closeImageLightbox() {
+  document.getElementById('imageLightbox').style.display = 'none';
+  document.getElementById('lightboxImg').src = '';
+}
+
 async function openMediaGallery() {
   if (!activeChat) return;
   try {
@@ -1001,8 +1039,8 @@ async function openMediaGallery() {
     const grid = document.getElementById('mediaGrid');
     grid.innerHTML = media.length
       ? media.map((m) => `<img src="${escapeHtml(m.image)}" loading="lazy">`).join('')
-      : '<div class="media-empty">ما فيه صور مشتركة بهذه المحادثة بعد</div>';
-    grid.querySelectorAll('img').forEach((img) => { img.onclick = () => window.open(img.src, '_blank'); });
+      : `<div class="media-empty">${t('media.empty', 'ما فيه صور مشتركة بهذه المحادثة بعد')}</div>`;
+    grid.querySelectorAll('img').forEach((img) => { img.onclick = () => openImageLightbox(img.src); });
     toggleModal('mediaModal', true);
   } catch (e) { showToast(e.message, true); }
 }
@@ -1016,7 +1054,7 @@ async function addMemberToGroup() {
     input.value = '';
     const group = await Api.get('/groups/' + activeChat.id);
     renderMembers(group.members);
-    document.getElementById('threadSub').textContent = `${group.members.length} أعضاء`;
+    document.getElementById('threadSub').textContent = `${group.members.length} ${t('members.count_suffix', 'أعضاء')}`;
   } catch (e) { showToast(e.message, true); }
 }
 

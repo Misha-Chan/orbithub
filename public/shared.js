@@ -191,10 +191,10 @@ function escapeHtml(str) {
 function timeAgo(isoLike) {
   const d = new Date(String(isoLike).replace(' ', 'T') + 'Z');
   const diffSec = Math.max(0, (Date.now() - d.getTime()) / 1000);
-  if (diffSec < 60) return 'الآن';
-  if (diffSec < 3600) return Math.floor(diffSec / 60) + 'د';
-  if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'س';
-  return Math.floor(diffSec / 86400) + 'ي';
+  if (diffSec < 60) return window.t ? t('time.now', 'الآن') : 'الآن';
+  if (diffSec < 3600) return Math.floor(diffSec / 60) + (window.t ? t('time.min', 'د') : 'د');
+  if (diffSec < 86400) return Math.floor(diffSec / 3600) + (window.t ? t('time.hour', 'س') : 'س');
+  return Math.floor(diffSec / 86400) + (window.t ? t('time.day', 'ي') : 'ي');
 }
 
 /* هذا الجزء فقط (الثيم) قائم على آلية حقيقية موجودة أصلاً بمشروع Hostaka
