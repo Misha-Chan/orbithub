@@ -10,6 +10,7 @@ let typingPollTimer = null;
 let typingSendTimer = null;
 let replyTo = null;
 let encryptionEnabled = false;
+let openMsgId = null; // id الرسالة المفتوحة حالياً (تفاعلات/خيارات ظاهرة لها فقط)
 
 function init() {
   document.getElementById('meBox').innerHTML =
@@ -150,6 +151,8 @@ function highlightActive(selector, matchFn) {
 
 async function openDM(username, otherId) {
   stopPolling();
+  openMsgId = null;
+  lastRenderSig = null;
   activeChat = { type: 'dm', username, otherId, displayName: username };
   highlightActive('.conv-item', (el) => el.dataset.username === username);
 
@@ -179,6 +182,8 @@ async function openDM(username, otherId) {
 
 async function openGroup(id) {
   stopPolling();
+  openMsgId = null;
+  lastRenderSig = null;
   try {
     const group = await Api.get('/groups/' + id);
     activeChat = { type: 'group', id, name: group.name, myRole: group.myRole, members: group.members };
@@ -246,30 +251,90 @@ async function refreshGroup(showErrors) {
   }
 }
 
+let lastRenderSig = null; // بصمة آخر رسم فعلي، لتجنّب إعادة رسم كاملة بلا داعي بكل استطلاع دوري
+
 async function renderMessages(msgs, type) {
   const el = document.getElementById('messagesEl');
-  const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
 
-  const rendered = await Promise.all(msgs.map((m) => renderOneMessage(m, type)));
-  el.innerHTML = rendered.join('');
+  // "إعادة التحميل الخفية": كنا نرسم كل الرسائل من الصفر كل 2.5 ثانية
+  // (الاستطلاع الدوري) حتى لو ما تغيّر ولا رسالة — هذا يفقد مكان القراءة
+  // ويكسر تجربة قراءة الرسائل القديمة. الحل: نقارن "بصمة" بسيطة للرسائل
+  // (id + هل معدّلة + طول المحتوى + وجود صورة)، ولو نفسها زي آخر مرة،
+  // نتجاهل إعادة رسم الرسائل نفسها بالكامل — بدون أي تأثير مرئي، الصفحة
+  // تضل ثابتة تمامًا. عدّاد التفاعلات يستمر يتحدّث دايماً بكل الحالات
+  // (تحته)، لأنه ممكن يتغيّر بدون ما تتغيّر بصمة الرسائل نفسها.
+  const sig = msgs.map((m) => `${m.id}:${m.edited ? 1 : 0}:${(m.content || '').length}:${m.image ? 1 : 0}`).join('|');
+  const contentChanged = sig !== lastRenderSig;
 
+  if (contentChanged) {
+    lastRenderSig = sig;
+
+    const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+    const prevScrollTop = el.scrollTop;
+    const prevScrollHeight = el.scrollHeight;
+
+    const rendered = await Promise.all(msgs.map((m) => renderOneMessage(m, type)));
+    el.innerHTML = rendered.join('');
+
+    el.querySelectorAll('[data-react]').forEach((btn) => {
+      btn.onclick = () => reactTo(Number(btn.dataset.id), btn.dataset.emoji, type);
+    });
+    el.querySelectorAll('[data-edit]').forEach((btn) => {
+      btn.onclick = () => startEdit(Number(btn.dataset.id), type);
+    });
+    el.querySelectorAll('[data-delete]').forEach((btn) => {
+      btn.onclick = () => deleteMsg(Number(btn.dataset.id), type);
+    });
+    el.querySelectorAll('[data-reply]').forEach((btn) => {
+      btn.onclick = () => setReply({ id: Number(btn.dataset.id), preview: btn.dataset.preview });
+    });
+
+    // الخيارات (التفاعلات + رد/تعديل/حذف) ما تظهر إلا لما المستخدم يضغط
+    // على الرسالة نفسها — مو دايماً ظاهرة ولا hover (اللي أصلاً ما يشتغل
+    // باللمس بالجوال). ضغطة ثانية على نفس الرسالة أو بأي مكان ثاني تسكّرها.
+    el.querySelectorAll('.msg-bubble').forEach((bubble) => {
+      bubble.onclick = (e) => {
+        e.stopPropagation();
+        const id = Number(bubble.closest('.msg-row').dataset.msgid);
+        openMsgId = (openMsgId === id) ? null : id;
+        applyOpenMsgState(el);
+      };
+    });
+    applyOpenMsgState(el);
+
+    // حفظ موضع القراءة بدقة: لو كان بالأسفل، خلّيه بالأسفل (رسالة جديدة
+    // وصلت). لو كان بمنتصف/أعلى المحادثة يقرا رسائل قديمة، نعوّض فرق
+    // الارتفاع الناتج عن إعادة الرسم بدل ما نخليه يرجع للأسفل أو يتصفّر —
+    // هذا بالضبط اللي كان "يخربط" القراءة.
+    if (wasAtBottom) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      el.scrollTop = prevScrollTop + (el.scrollHeight - prevScrollHeight);
+    }
+  }
+
+  // عدّاد التفاعلات (❤️👍...) يتحدّث دايماً بكل استطلاع، حتى لو تجاهلنا
+  // إعادة رسم الرسائل نفسها فوق — التفاعل ممكن يتغيّر بدون ما يتغيّر نص
+  // أي رسالة.
   await applyReactionCounts(msgs.map((m) => m.id), type);
-
-  el.querySelectorAll('[data-react]').forEach((btn) => {
-    btn.onclick = () => reactTo(Number(btn.dataset.id), btn.dataset.emoji, type);
-  });
-  el.querySelectorAll('[data-edit]').forEach((btn) => {
-    btn.onclick = () => startEdit(Number(btn.dataset.id), type);
-  });
-  el.querySelectorAll('[data-delete]').forEach((btn) => {
-    btn.onclick = () => deleteMsg(Number(btn.dataset.id), type);
-  });
-  el.querySelectorAll('[data-reply]').forEach((btn) => {
-    btn.onclick = () => setReply({ id: Number(btn.dataset.id), preview: btn.dataset.preview });
-  });
-
-  if (wasAtBottom) el.scrollTop = el.scrollHeight;
 }
+
+/** يطبّق حالة "الرسالة المفتوحة" (openMsgId) على كل صفوف الرسائل بعد الرسم */
+function applyOpenMsgState(el) {
+  el.querySelectorAll('.msg-row').forEach((row) => {
+    row.classList.toggle('msg-open', Number(row.dataset.msgid) === openMsgId);
+  });
+}
+
+// أي ضغطة بره فقاعة أي رسالة تسكّر الخيارات المفتوحة حالياً (مرة وحدة،
+// مو بكل رسم — عشان ما نكرر المستمع مع كل تحديث/استطلاع دوري).
+document.addEventListener('click', (e) => {
+  if (openMsgId !== null && !e.target.closest('.msg-bubble')) {
+    openMsgId = null;
+    const el = document.getElementById('messagesEl');
+    if (el) applyOpenMsgState(el);
+  }
+});
 
 async function decryptIfNeeded(m) {
   if (!m.encrypted) return m.content;

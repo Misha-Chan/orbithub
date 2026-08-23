@@ -61,11 +61,13 @@
 .msg-row.theirs .msg-bubble { border-bottom-right-radius: 4px; }
 .msg-bubble img { max-width: 220px; border-radius: 10px; display: block; margin-top: 6px; }
 .msg-meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
-.msg-reactions { display: flex; gap: 3px; margin-top: 4px; }
+.msg-reactions { display: none; gap: 3px; margin-top: 4px; }
 .msg-reaction { background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; font-size: 12px; cursor: pointer; }
 .msg-reaction.mine { border-color: var(--accent); }
 .msg-actions { display: none; gap: 6px; margin-top: 3px; }
-.msg-row:hover .msg-actions { display: flex; }
+.msg-row.msg-open .msg-reactions,
+.msg-row.msg-open .msg-actions { display: flex; }
+.msg-bubble { cursor: pointer; }
 .msg-actions button { background: none; border: none; color: var(--text-dim); font-size: 11px; cursor: pointer; padding: 0; }
 .msg-actions button:hover { color: var(--text); }
 .msg-reply-ref { font-size: 11.5px; color: var(--text-dim); border-right: 2px solid var(--accent); padding-right: 6px; margin-bottom: 4px; }
