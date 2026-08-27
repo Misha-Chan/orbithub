@@ -16,6 +16,7 @@ const settingsRoutes = require('./routes/settings.routes');
 const usersRoutes = require('./routes/users.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const reportsRoutes = require('./routes/reports.routes');
+const linkPreviewRoutes = require('./routes/linkpreview.routes');
 
 const app = express();
 app.use(cors());
@@ -59,6 +60,7 @@ function injectOG(html, meta) {
   tags += `  <meta name="twitter:title" content="${title}">\n`;
   tags += `  <meta name="twitter:description" content="${desc}">\n`;
   tags += `  <meta name="twitter:image" content="${image}">\n`;
+  tags += `  <script src="/ecosystem-switcher.js" defer></script>\n`;
   if (/<title>[\s\S]*?<\/title>/.test(html)) {
     return html.replace(/<title>[\s\S]*?<\/title>/, `<title>${title}</title>\n${tags}`);
   }
@@ -126,6 +128,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/link-preview', linkPreviewRoutes);
 
 // 404 لأي مسار API غير معروف
 app.use('/api', (req, res) => res.status(404).json({ error: 'مسار غير موجود' }));
