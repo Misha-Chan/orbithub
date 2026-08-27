@@ -366,7 +366,9 @@ async function applyLinkPreviews() {
             <div class="link-preview-domain">${escapeHtml(domain)}</div>
           </div>
         </a>`;
-    } catch (e) { /* فشل الجلب — نسيب الرابط كنص عادي بدون بطاقة */ }
+    } catch (e) {
+      console.error('link-preview fetch failed for', url, e);
+    }
   }
 }
 
