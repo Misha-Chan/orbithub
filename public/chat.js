@@ -72,7 +72,7 @@ function init() {
   MsgCrypto.ensureKeysRegistered().catch(() => {});
 }
 
-function avatarInitial(name) { return escapeHtml((name || '?').trim().charAt(0).toUpperCase()); }
+function avatarInitial(name) { return `<img src="/default-avatar.jpg" alt="">`; }
 function showToast(msg, isError) {
   const t = document.createElement('div');
   t.className = 'toast' + (isError ? ' error' : '');
