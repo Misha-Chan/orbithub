@@ -331,6 +331,43 @@ async function renderMessages(msgs, type) {
   // إعادة رسم الرسائل نفسها فوق — التفاعل ممكن يتغيّر بدون ما يتغيّر نص
   // أي رسالة.
   await applyReactionCounts(msgs.map((m) => m.id), type);
+  if (contentChanged) applyLinkPreviews();
+}
+
+/** رابط http/https أول موجود بنص الرسالة (بعد فك التشفير)، أو null */
+function extractFirstUrl(text) {
+  const m = String(text || '').match(/https?:\/\/[^\s<>"']+/i);
+  return m ? m[0].replace(/[.,!?)\]]+$/, '') : null;
+}
+
+const linkPreviewCache = new Map(); // url -> {title,description,image,siteName} بالجهاز نفسه، يفضى عند تحديث الصفحة
+
+/** يجلب معاينة Open Graph لكل رابط بأول رسالة تحتويه، ويملأ بطاقة تحته */
+async function applyLinkPreviews() {
+  const slots = document.querySelectorAll('[data-link-preview-for]');
+  for (const slot of slots) {
+    const url = slot.dataset.linkUrl;
+    if (!url) continue;
+    try {
+      let data = linkPreviewCache.get(url);
+      if (!data) {
+        data = await Api.get(`/link-preview?url=${encodeURIComponent(url)}`);
+        linkPreviewCache.set(url, data);
+      }
+      if (!data || (!data.title && !data.image)) continue; // ما فيه شي نعرضه — يبقى الرابط نص عادي
+      let domain = data.siteName || '';
+      try { domain = domain || new URL(url).hostname; } catch (e) { /* تجاهل */ }
+      slot.innerHTML = `
+        <a class="link-preview-card" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+          ${data.image ? `<img class="link-preview-img" src="${escapeHtml(data.image)}" loading="lazy" onerror="this.remove()">` : ''}
+          <div class="link-preview-body">
+            ${data.title ? `<div class="link-preview-title">${escapeHtml(data.title)}</div>` : ''}
+            ${data.description ? `<div class="link-preview-desc">${escapeHtml(data.description)}</div>` : ''}
+            <div class="link-preview-domain">${escapeHtml(domain)}</div>
+          </div>
+        </a>`;
+    } catch (e) { /* فشل الجلب — نسيب الرابط كنص عادي بدون بطاقة */ }
+  }
 }
 
 /** يطبّق حالة "الرسالة المفتوحة" (openMsgId) على كل صفوف الرسائل بعد الرسم */
@@ -370,6 +407,7 @@ async function renderOneMessage(m, type) {
   const senderName = type === 'group' ? m.from_name : (mine ? '' : activeChat.displayName);
   const rawContent = type === 'dm' ? await decryptIfNeeded(m) : m.content;
   const content = window.EmojiFluent ? EmojiFluent.render(escapeHtml(rawContent)) : escapeHtml(rawContent);
+  const previewUrl = extractFirstUrl(rawContent);
   // ملاحظة: التفاعلات (عدد كل نوع + تفاعل المستخدم الحالي) تُحمَّل وتُحدَّث
   // بشكل منفصل بعد الرسم عبر applyReactionCounts() (تبحث عن
   // data-reactions-for بالـ DOM وتملأها) — مو من هون. كان فيه سطر ميت هنا
@@ -382,6 +420,7 @@ async function renderOneMessage(m, type) {
       ${type === 'group' && !mine ? `<div class="conv-last" style="margin-bottom:2px">${escapeHtml(senderName)}</div>` : ''}
       <div class="msg-content">
         ${content ? `<div class="msg-bubble">${content}</div>` : ''}
+        ${previewUrl ? `<div class="link-preview-slot" data-link-preview-for="${m.id}" data-link-url="${escapeHtml(previewUrl)}"></div>` : ''}
         ${m.image ? `<img class="msg-image" src="${escapeHtml(m.image)}" data-full="${escapeHtml(m.image)}">` : ''}
       </div>
       <div class="msg-meta">
