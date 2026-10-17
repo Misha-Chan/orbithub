@@ -6,6 +6,7 @@ const fs = require('fs');
 
 const { initSchema } = require('./db/schema');
 const { errorHandler } = require('./middleware/errorHandler');
+const { rateLimit } = require('./middleware/rateLimit');
 
 const authRoutes = require('./routes/auth.routes');
 const messagesRoutes = require('./routes/messages.routes');
@@ -19,6 +20,19 @@ const reportsRoutes = require('./routes/reports.routes');
 const linkPreviewRoutes = require('./routes/linkpreview.routes');
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1); // نحتاج req.ip صحيح خلف بروكسي Vercel لحدّ المعدّل
+
+// رؤوس أمان أساسية على كل الردود (كانت غائبة تماماً — بخلاف hostaka).
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  next();
+});
+
 app.use(cors());
 app.use(cookieParser());
 app.use(express.json({ limit: '5mb' }));
@@ -118,6 +132,9 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// حدّ معدّل على كل مسارات /api (بعد /api/health حتى لا يتأثر فحص الجاهزية)
+app.use('/api', rateLimit);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/messages', messagesRoutes);

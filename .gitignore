@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.vercel/
+local.db
+local.db-*
+*.log
+.DS_Store
