@@ -84,4 +84,9 @@
     // نجهّز en كـ fallback ثاني بالخلفية (لو اللغة الحالية عربي ونقص مفتاح)
     if (lang !== 'en') loadDict('en');
   });
+
+  // وعد جهوزية القاموس — تستعمله العناصر الديناميكية (مثل رسائل نظام
+  // المجموعات) لتنتظر تحميل الترجمة قبل بناء نصها بلغة المستخدم الحالية.
+  window.i18nReady = loadDict(lang);
+  if (lang === 'ar') window.i18nReady = window.i18nReady.then(function () { return loadDict('en'); });
 })();

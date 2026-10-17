@@ -33,6 +33,10 @@ async function actorName(req) {
 }
 function memberLabel(u) { return u ? (u.display_name || u.username) : 'عضو'; }
 
+/** رسائل النظام تُخزَّن ككائن JSON (حدث + وسائط) بدل نص جاهز، حتى يعرضها
+ *  العميل بلغة المستخدم الحالية (عربي/إنجليزي) بدل لغة ثابتة بالسيرفر. */
+function sysEvent(e, params) { return JSON.stringify({ e, ...(params || {}) }); }
+
 router.get('/', asyncHandler(async (req, res) => {
   res.json(await groups.getUserGroups(req.user.id));
 }));
@@ -41,7 +45,7 @@ router.post('/', asyncHandler(async (req, res) => {
   const { name, description, avatar } = req.body || {};
   if (!name?.trim()) throw new ApiError(400, 'اسم المجموعة مطلوب');
   const group = await groups.createGroup(req.user.id, { name: name.trim(), description, avatar });
-  await groups.addSystemMessage(group.id, req.user.id, `${await actorName(req)} أنشأ المجموعة`);
+  await groups.addSystemMessage(group.id, req.user.id, sysEvent('created', { actor: await actorName(req) }));
   res.status(201).json(group);
 }));
 
@@ -58,13 +62,13 @@ router.put('/:id', requireMember, requireGroupAdmin, asyncHandler(async (req, re
   const who = await actorName(req);
   // كل تغيير بالإعدادات يُسجَّل كرسالة نظام تظهر بنص خافت عند كل الأعضاء.
   if (avatar !== undefined && avatar !== before.avatar) {
-    await groups.addSystemMessage(req.groupId, req.user.id, `${who} غيّر صورة المجموعة`);
+    await groups.addSystemMessage(req.groupId, req.user.id, sysEvent('photo', { actor: who }));
   }
   if (name !== undefined && name !== before.name) {
-    await groups.addSystemMessage(req.groupId, req.user.id, `${who} غيّر اسم المجموعة إلى «${updated.name}»`);
+    await groups.addSystemMessage(req.groupId, req.user.id, sysEvent('name', { actor: who, value: updated.name }));
   }
   if (description !== undefined && description !== before.description) {
-    await groups.addSystemMessage(req.groupId, req.user.id, `${who} حدّث وصف المجموعة`);
+    await groups.addSystemMessage(req.groupId, req.user.id, sysEvent('desc', { actor: who }));
   }
   res.json(updated);
 }));
@@ -81,7 +85,7 @@ router.post('/:id/members', requireMember, requireGroupAdmin, asyncHandler(async
   if (!target) throw new ApiError(404, 'المستخدم غير موجود');
   if (await groups.getMembership(req.groupId, target.id)) { res.json({ success: true }); return; }
   await groups.addMember(req.groupId, target.id);
-  await groups.addSystemMessage(req.groupId, req.user.id, `${await actorName(req)} أضاف ${memberLabel(target)} إلى المجموعة`);
+  await groups.addSystemMessage(req.groupId, req.user.id, sysEvent('member_added', { actor: await actorName(req), target: memberLabel(target) }));
   res.json({ success: true });
 }));
 
@@ -97,7 +101,7 @@ router.delete('/:id/members/:uid', requireMember, asyncHandler(async (req, res) 
   const who = await actorName(req);
   await groups.addSystemMessage(
     req.groupId, req.user.id,
-    isSelf ? `${who} غادر المجموعة` : `${who} أزال ${memberLabel(target)} من المجموعة`
+    isSelf ? sysEvent('member_left', { actor: who }) : sysEvent('member_removed', { actor: who, target: memberLabel(target) })
   );
   res.json({ success: true });
 }));
@@ -113,7 +117,7 @@ router.put('/:id/members/:uid/role', requireMember, requireGroupAdmin, asyncHand
   const label = memberLabel(target);
   await groups.addSystemMessage(
     req.groupId, req.user.id,
-    role === 'admin' ? `${await actorName(req)} عيّن ${label} كمشرف` : `${await actorName(req)} أزال إشراف ${label}`
+    sysEvent(role === 'admin' ? 'role_admin' : 'role_member', { actor: await actorName(req), target: label })
   );
   res.json({ success: true });
 }));
@@ -131,10 +135,12 @@ router.put('/:id/members/:uid/nickname', requireMember, asyncHandler(async (req,
   await groups.setMemberNickname(req.groupId, targetId, nickname);
   const who = await actorName(req);
   const label = memberLabel(await users.getUserById(targetId));
-  const text = isSelf
-    ? (nickname ? `${who} غيّر كنيته إلى «${nickname}»` : `${who} أزال كنيته`)
-    : (nickname ? `${who} غيّر كنية ${label} إلى «${nickname}»` : `${who} أزال كنية ${label}`);
-  await groups.addSystemMessage(req.groupId, req.user.id, text);
+  const event = isSelf
+    ? (nickname ? 'nick_self' : 'nick_self_clear')
+    : (nickname ? 'nick_other' : 'nick_other_clear');
+  await groups.addSystemMessage(req.groupId, req.user.id, sysEvent(event, {
+    actor: who, target: isSelf ? who : label, value: nickname,
+  }));
   res.json({ success: true });
 }));
 

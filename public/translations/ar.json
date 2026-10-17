@@ -91,5 +91,20 @@
   "errors": {
     "load_conversations": "تعذر تحميل المحادثات",
     "load_groups": "تعذر تحميل المجموعات"
+  },
+  "sys": {
+    "created": "أنشأ {actor} المجموعة",
+    "photo": "غيّر {actor} صورة المجموعة",
+    "name": "غيّر {actor} اسم المجموعة إلى «{value}»",
+    "desc": "حدّث {actor} وصف المجموعة",
+    "member_added": "أضاف {actor} {target} إلى المجموعة",
+    "member_left": "غادر {actor} المجموعة",
+    "member_removed": "أزال {actor} {target} من المجموعة",
+    "role_admin": "عيّن {actor} {target} كمشرف",
+    "role_member": "أزال {actor} إشراف {target}",
+    "nick_self": "غيّر {actor} كنيته إلى «{value}»",
+    "nick_self_clear": "أزال {actor} كنيته",
+    "nick_other": "غيّر {actor} كنية {target} إلى «{value}»",
+    "nick_other_clear": "أزال {actor} كنية {target}"
   }
 }

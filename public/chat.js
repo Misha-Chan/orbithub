@@ -505,6 +505,37 @@ function isEmojiOnly(text) {
   return _emojiOnlyRe ? _emojiOnlyRe.test(s) : false;
 }
 
+/** يحوّل محتوى رسالة النظام (JSON حدث + وسائط) إلى نص بلغة المستخدم الحالية.
+ *  الرسائل القديمة المخزّنة كنص جاهز تُعرض كما هي (توافق للخلف). */
+const SYS_FALLBACK = {
+  created: '{actor} created the group',
+  photo: '{actor} changed the group photo',
+  name: '{actor} changed the group name to “{value}”',
+  desc: '{actor} updated the group description',
+  member_added: '{actor} added {target}',
+  member_left: '{actor} left the group',
+  member_removed: '{actor} removed {target}',
+  role_admin: '{actor} made {target} an admin',
+  role_member: '{actor} removed admin from {target}',
+  nick_self: '{actor} changed their nickname to “{value}”',
+  nick_self_clear: '{actor} cleared their nickname',
+  nick_other: '{actor} changed {target}’s nickname to “{value}”',
+  nick_other_clear: '{actor} cleared {target}’s nickname',
+};
+async function formatSystemMessage(raw) {
+  if (!raw) return '';
+  let ev;
+  try { ev = JSON.parse(raw); } catch (e) { return raw; } // نص قديم غير JSON
+  if (!ev || !ev.e || !SYS_FALLBACK[ev.e]) return raw;
+  // ننتظر تحميل قاموس الترجمة حتى يظهر النص بلغة المستخدم لا بالإنجليزية دائماً
+  if (window.i18nReady) { try { await window.i18nReady; } catch (e) { /* تجاهل */ } }
+  const template = typeof t === 'function' ? t('sys.' + ev.e, SYS_FALLBACK[ev.e]) : SYS_FALLBACK[ev.e];
+  return template
+    .replaceAll('{actor}', ev.actor || '')
+    .replaceAll('{target}', ev.target || '')
+    .replaceAll('{value}', ev.value || '');
+}
+
 async function renderOneMessage(m, type) {
   const mine = type === 'group' ? m.user_id === me.id : m.from_id === me.id;
   const senderName = type === 'group' ? m.from_name : (mine ? '' : activeChat.displayName);
@@ -518,7 +549,9 @@ async function renderOneMessage(m, type) {
   const content = window.EmojiFluent ? EmojiFluent.render(escapeHtml(rawContent)) : escapeHtml(rawContent);
   // رسائل النظام (تغيير صورة/كنية/عضو...) تُعرض بنص خافت وسط المحادثة بدل فقاعة.
   if (m.type === 'system') {
-    return `<div class="msg-system" data-msgid="${m.id}">${content}</div>`;
+    const sysText = await formatSystemMessage(rawContent);
+    const sysContent = window.EmojiFluent ? EmojiFluent.render(escapeHtml(sysText)) : escapeHtml(sysText);
+    return `<div class="msg-system" data-msgid="${m.id}">${sysContent}</div>`;
   }
   const bigEmoji = !m.image && content && isEmojiOnly(rawContent);
   const previewUrl = extractFirstUrl(rawContent);

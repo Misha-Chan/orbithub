@@ -91,5 +91,20 @@
   "errors": {
     "load_conversations": "Couldn't load conversations",
     "load_groups": "Couldn't load groups"
+  },
+  "sys": {
+    "created": "{actor} created the group",
+    "photo": "{actor} changed the group photo",
+    "name": "{actor} changed the group name to “{value}”",
+    "desc": "{actor} updated the group description",
+    "member_added": "{actor} added {target}",
+    "member_left": "{actor} left the group",
+    "member_removed": "{actor} removed {target}",
+    "role_admin": "{actor} made {target} an admin",
+    "role_member": "{actor} removed admin from {target}",
+    "nick_self": "{actor} changed their nickname to “{value}”",
+    "nick_self_clear": "{actor} cleared their nickname",
+    "nick_other": "{actor} changed {target}’s nickname to “{value}”",
+    "nick_other_clear": "{actor} cleared {target}’s nickname"
   }
 }
