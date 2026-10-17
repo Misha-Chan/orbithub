@@ -414,11 +414,34 @@ async function decryptIfNeeded(m) {
   }
 }
 
+/** هل النص يتكوّن من إيموجي فقط (بدون حروف/أرقام)؟ نستخدمه لعرض الإيموجي
+ *  بالحجم الكبير خارج بطاقة الرسالة (نمط واتساب/تلغرام). */
+let _emojiOnlyRe = null; // نبنيها كسولاً داخل try لتفادي أي خطأ صياغة بمحركات قديمة
+function isEmojiOnly(text) {
+  const s = String(text || '').replace(/\s/g, '');
+  if (!s || s.length > 12) return false;
+  if (_emojiOnlyRe === null) {
+    try {
+      _emojiOnlyRe = new RegExp('^[\\p{Extended_Pictographic}\\uFE0F\\u200D\\u20E3\\u{1F3FB}-\\u{1F3FF}]+$', 'u');
+    } catch (e) {
+      _emojiOnlyRe = false;
+    }
+  }
+  return _emojiOnlyRe ? _emojiOnlyRe.test(s) : false;
+}
+
 async function renderOneMessage(m, type) {
   const mine = type === 'group' ? m.user_id === me.id : m.from_id === me.id;
   const senderName = type === 'group' ? m.from_name : (mine ? '' : activeChat.displayName);
   const rawContent = type === 'dm' ? await decryptIfNeeded(m) : m.content;
+  // ننتظر جهوزية قائمة الإيموجي قبل الرسم — وإلا تُرسم الرموز كنص يونيكود خام
+  // (يظهر مربع فارغ على بعض الأجهزة بدل الإيموجي). loadCatalog تخزّن وعدها
+  // وتعيده، فما فيه طلب إضافي بعد أول مرة.
+  if (window.EmojiFluent && EmojiFluent.loadCatalog) {
+    try { await EmojiFluent.loadCatalog(); } catch (e) { /* تجاهل */ }
+  }
   const content = window.EmojiFluent ? EmojiFluent.render(escapeHtml(rawContent)) : escapeHtml(rawContent);
+  const bigEmoji = !m.image && content && isEmojiOnly(rawContent);
   const previewUrl = extractFirstUrl(rawContent);
   // ملاحظة: التفاعلات (عدد كل نوع + تفاعل المستخدم الحالي) تُحمَّل وتُحدَّث
   // بشكل منفصل بعد الرسم عبر applyReactionCounts() (تبحث عن
@@ -431,7 +454,9 @@ async function renderOneMessage(m, type) {
     <div class="msg-row ${mine ? 'mine' : 'theirs'}" data-msgid="${m.id}">
       ${type === 'group' && !mine ? `<div class="conv-last" style="margin-bottom:2px">${escapeHtml(senderName)}</div>` : ''}
       <div class="msg-content">
-        ${content ? `<div class="msg-bubble">${content}</div>` : ''}
+        ${bigEmoji
+          ? `<div class="msg-emoji-only">${content}</div>`
+          : (content ? `<div class="msg-bubble">${content}</div>` : '')}
         ${previewUrl ? `<div class="link-preview-slot" data-link-preview-for="${m.id}" data-link-url="${escapeHtml(previewUrl)}"></div>` : ''}
         ${m.image ? `<img class="msg-image" src="${escapeHtml(m.image)}" data-full="${escapeHtml(m.image)}">` : ''}
       </div>

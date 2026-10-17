@@ -309,3 +309,70 @@
   .empty-emoji { width: 72px; height: 72px; }
   .empty-title { font-size: var(--text-lg); }
 }
+
+/* ============================================================
+   ثيم orbithub — أخضر غامق داكن (brand override)
+   مُضاف في النهاية ليعلو على theme.css/bridge.css في صفحة orbithub فقط.
+   ============================================================ */
+:root, html {
+  --primary: #1e7a4d;
+  --primary-h: #17603c;
+  --primary-light: rgba(30,122,77,.08);
+  --primary-mid: rgba(30,122,77,.16);
+  --primary-border: rgba(30,122,77,.28);
+  --accent: var(--primary);
+  --avatar-gradient: linear-gradient(145deg, #1e7a4d, #46b27a);
+}
+
+[data-theme="dark"] {
+  --primary: #35c07d;
+  --primary-h: #4fd894;
+  --primary-light: rgba(53,192,125,.12);
+  --primary-mid: rgba(53,192,125,.20);
+  --primary-border: rgba(53,192,125,.32);
+  --accent: var(--primary);
+  --avatar-gradient: linear-gradient(145deg, #2a9d63, #4fd894);
+
+  --black: #000000;
+  --dark: #040906;          /* خلفية أغمق بكثير */
+  --bg: var(--dark);
+  --card: #0c1710;
+  --border: rgba(255,255,255,.08);
+  --text: #e7f4ec;
+  --muted: #7e9589;
+  --input-bg: #0a140e;
+  --modal-bg: #0c1710;
+  --surface-elevated: #12211a;
+  --post-bg: #0c1710;
+}
+
+/* فقاعات الرسائل — أخضر غامق داكن */
+.msg-row.mine .msg-bubble {
+  background: linear-gradient(135deg, #1e7a4d, #14512f);
+  color: #f2fff8;
+  box-shadow: none;
+}
+.msg-row.theirs .msg-bubble {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+[data-theme="dark"] .msg-row.mine .msg-bubble {
+  background: linear-gradient(135deg, #176040, #0f3d28);
+  color: #eafff3;
+}
+[data-theme="dark"] .msg-row.theirs .msg-bubble {
+  background: #0e1d15;
+  border-color: rgba(255,255,255,.07);
+}
+
+/* إيموجي كبير خارج بطاقة الرسالة (رسالة إيموجي فقط) */
+.msg-emoji-only {
+  font-size: 2.6rem;
+  line-height: 1.15;
+  padding: 2px 0;
+}
+.msg-emoji-only .femoji {
+  width: 2.6rem;
+  height: 2.6rem;
+  vertical-align: middle;
+}
