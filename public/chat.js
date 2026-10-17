@@ -95,16 +95,26 @@ async function loadConversations() {
   try {
     const convs = await Api.get('/messages/conversations');
     if (!convs.length) { list.innerHTML = `<div class="empty-list">${t('toast.no_messages_yet', 'لا محادثات بعد')}</div>`; return; }
-    list.innerHTML = convs.map((c) => `
-      <div class="conv-item" data-username="${escapeHtml(c.username)}" data-otherid="${c.id}">
+    list.innerHTML = convs.map((c) => {
+      const preview = c.last_image && !c.last_content
+        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> ${t('composer.image_short', 'صورة')}`
+        : escapeHtml(c.last_content || '');
+      const prefix = Number(c.last_from_id) === me.id
+        ? `<span class="conv-you">${escapeHtml(t('composer.you_prefix', 'أنت: '))}</span>` : '';
+      const time = c.last_at ? `<div class="conv-time">${timeAgo(c.last_at)}</div>` : '';
+      return `
+      <div class="conv-item${c.unread ? ' unread' : ''}" data-username="${escapeHtml(c.username)}" data-otherid="${c.id}">
         <div class="avatar">${c.avatar ? `<img src="${escapeHtml(c.avatar)}">` : avatarInitial(c.display_name || c.username)}</div>
         <div class="conv-meta">
-          <div class="conv-name">${escapeHtml(c.display_name || c.username)}</div>
-          <div class="conv-last">${c.last_image && !c.last_content ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> صورة` : escapeHtml(c.last_content || '')}</div>
+          <div class="conv-row-top">
+            <div class="conv-name">${escapeHtml(c.display_name || c.username)}</div>
+            ${time}
+          </div>
+          <div class="conv-last">${prefix}${preview}</div>
         </div>
         ${c.unread ? `<span class="conv-unread">${c.unread}</span>` : ''}
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
     list.querySelectorAll('.conv-item').forEach((el) => {
       el.onclick = () => openDM(el.dataset.username, Number(el.dataset.otherid));
     });

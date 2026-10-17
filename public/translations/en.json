@@ -8,9 +8,15 @@
     "attach_title": "Attach image",
     "emoji_title": "Emoji",
     "placeholder": "Type a message...",
-    "send": "Send"
+    "send": "Send",
+    "you_prefix": "You: ",
+    "image_short": "Image"
   },
-  "empty": { "select": "Pick a chat or start a new one" },
+  "empty": {
+    "select": "Pick a chat or start a new one",
+    "title": "Welcome to Hostaka Messages",
+    "hint": "Pick a conversation from the list, or search for someone to start a new chat."
+  },
   "chat": {
     "e2e_title": "End-to-end encryption",
     "members_title": "Members",
