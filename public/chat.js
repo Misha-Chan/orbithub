@@ -100,8 +100,12 @@ function openFromUrl() {
   } else if (parts[1]) {
     switchTab('dms');
     openDM(decodeURIComponent(parts[1]), null);
-  } else if (activeChat) {
-    closeThread(false);
+  } else {
+    // احتياط للروابط القديمة /chat?with=<username> القادمة من Hostaka —
+    // نحوّلها لصيغة الرابط الموحّد داخلياً (openDM يحدّث شريط العنوان).
+    const withUser = new URLSearchParams(location.search).get('with');
+    if (withUser) { switchTab('dms'); openDM(withUser, null); return; }
+    if (activeChat) closeThread(false);
   }
 }
 
