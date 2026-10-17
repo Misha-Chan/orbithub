@@ -65,6 +65,8 @@
     "media": "View media",
     "members_nick": "View members & set nicknames",
     "add_member": "Add member",
+    "copy_link": "Copy conversation link",
+    "link_copied": "Conversation link copied",
     "delete_conv": "Delete conversation"
   },
   "prompts": {

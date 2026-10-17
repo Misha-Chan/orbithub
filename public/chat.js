@@ -33,13 +33,7 @@ function init() {
 
   document.getElementById('composerForm').addEventListener('submit', onSend);
   document.getElementById('messageInput').addEventListener('input', onTypingInput);
-  document.getElementById('backToListBtn').onclick = () => {
-    stopPolling();
-    activeChat = null;
-    document.getElementById('threadView').style.display = 'none';
-    document.getElementById('emptyState').style.display = 'flex';
-    document.querySelector('.app').classList.remove('chat-open');
-  };
+  document.getElementById('backToListBtn').onclick = () => closeThread();
   document.getElementById('attachImageBtn').onclick = () => document.getElementById('imageFileInput').click();
   document.getElementById('imageFileInput').addEventListener('change', onImageFileChosen);
 
@@ -70,6 +64,85 @@ function init() {
   loadConversations();
   loadGroups();
   MsgCrypto.ensureKeysRegistered().catch(() => {});
+  // رابط مخصّص لكل محادثة (/chat/<username> أو /chat/g/<id>): نفتح المحادثة
+  // المذكورة بالرابط مباشرة عند تحميل الصفحة، ونتفاعل مع أزرار الرجوع/التقدم.
+  openFromUrl();
+  window.addEventListener('popstate', openFromUrl);
+}
+
+// ================= روابط المحادثات (Deep Links) =================
+// كل محادثة صار إلها مسار خاص فيها بدل ما تكون كلها /chat: الروابط صارت
+// قابلة للحفظ وللمشاركة مع الأطراف المشاركة بالمحادثة نفسها.
+function chatPathFor() {
+  if (!activeChat) return '/chat';
+  if (activeChat.type === 'group') return '/chat/g/' + activeChat.id;
+  return '/chat/' + encodeURIComponent(activeChat.username);
+}
+
+/** يحدّث شريط العنوان ليطابق المحادثة المفتوحة حالياً (pushState للإضافة لسجل
+ *  المتصفح حتى يشتغل زر الرجوع، replaceState للتصحيح بدون إضافة سطر). */
+function syncChatUrl(push) {
+  const path = chatPathFor();
+  if (location.pathname === path) return;
+  try {
+    history[push ? 'pushState' : 'replaceState']({ chat: path }, '', path);
+  } catch (e) { /* تجاهل */ }
+}
+
+/** يفكّك المسار الحالي ويفتح المحادثة المطابقة — يُستدعى عند التحميل وعند
+ *  التنقل بزر الرجوع/التقدم في المتصفح. */
+function openFromUrl() {
+  const parts = location.pathname.split('/').filter(Boolean); // ['chat', ...]
+  if (parts[0] !== 'chat') return;
+  if (parts[1] === 'g' && parts[2]) {
+    switchTab('groups');
+    openGroup(Number(parts[2]));
+  } else if (parts[1]) {
+    switchTab('dms');
+    openDM(decodeURIComponent(parts[1]), null);
+  } else if (activeChat) {
+    closeThread(false);
+  }
+}
+
+/** يرجع لقائمة المحادثات ويزيل رابط المحادثة من شريط العنوان. */
+function closeThread(updateUrl = true) {
+  stopPolling();
+  activeChat = null;
+  document.getElementById('threadView').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'flex';
+  document.querySelector('.app').classList.remove('chat-open');
+  if (updateUrl && location.pathname !== '/chat') {
+    try { history.pushState({}, '', '/chat'); } catch (e) {}
+  }
+}
+
+/** ينسخ رابط المحادثة المفتوحة حالياً (مسارها الخاص) للحافظة. */
+function copyChatLink() {
+  if (!activeChat) return;
+  const url = location.origin + chatPathFor();
+  const done = () => showToast(t('menu.link_copied', 'تم نسخ رابط المحادثة'));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
+  } else {
+    fallbackCopy(url, done);
+  }
+}
+
+function fallbackCopy(text, done) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    done();
+  } catch (e) {
+    showToast(text);
+  }
 }
 
 function avatarInitial(name) { return `<img src="/default-avatar.jpg" alt="">`; }
@@ -170,6 +243,7 @@ async function openDM(username, otherId) {
   lastRenderSig = null;
   activeChat = { type: 'dm', username, otherId, displayName: username };
   highlightActive('.conv-item', (el) => el.dataset.username === username);
+  syncChatUrl(true);
 
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('threadView').style.display = 'flex';
@@ -204,6 +278,7 @@ async function openGroup(id) {
     activeChat = { type: 'group', id, name: group.name, myRole: group.myRole, members: group.members };
 
     highlightActive('.group-item', (el) => Number(el.dataset.id) === id);
+    syncChatUrl(true);
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('threadView').style.display = 'flex';
     document.querySelector('.app').classList.add('chat-open');
@@ -768,10 +843,7 @@ async function onDeleteConversation() {
       loadGroups();
     }
     stopPolling();
-    activeChat = null;
-    document.getElementById('threadView').style.display = 'none';
-    document.getElementById('emptyState').style.display = 'flex';
-    document.querySelector('.app').classList.remove('chat-open');
+    closeThread();
   } catch (e) { showToast(e.message, true); }
 }
 
@@ -981,6 +1053,7 @@ function openChatMenu(e) {
     delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
     members: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     addMember: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>',
+    link: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
   };
 
   const items = [];
@@ -988,6 +1061,7 @@ function openChatMenu(e) {
     items.push(`<button data-act="nick">${icons.nick}${t('menu.nickname', 'تعيين الكنية')}</button>`);
     items.push(`<button data-act="profile">${icons.profile}${t('menu.profile', 'عرض الملف الشخصي')}</button>`);
     items.push(`<button data-act="media">${icons.media}${t('menu.media', 'عرض الوسائط')}</button>`);
+    items.push(`<button data-act="copylink">${icons.link}${t('menu.copy_link', 'نسخ رابط المحادثة')}</button>`);
     items.push('<hr>');
     items.push(`<button data-act="block" class="danger">${icons.block}${t('menu.block', 'حظر المستخدم')}</button>`);
     items.push(`<button data-act="report" class="danger">${icons.flag}${t('menu.report_conv', 'الإبلاغ عن المحادثة')}</button>`);
@@ -995,6 +1069,7 @@ function openChatMenu(e) {
     items.push(`<button data-act="members">${icons.members}${t('menu.members_nick', 'عرض الأعضاء وتعيين الكنيات')}</button>`);
     items.push(`<button data-act="addmember">${icons.addMember}${t('menu.add_member', 'إضافة عضو')}</button>`);
     items.push(`<button data-act="media">${icons.media}${t('menu.media', 'عرض الوسائط')}</button>`);
+    items.push(`<button data-act="copylink">${icons.link}${t('menu.copy_link', 'نسخ رابط المحادثة')}</button>`);
     items.push('<hr>');
     items.push(`<button data-act="report" class="danger">${icons.flag}${t('menu.report_conv', 'الإبلاغ عن المحادثة')}</button>`);
     items.push(`<button data-act="delete" class="danger">${icons.delete}${t('menu.delete_conv', 'حذف المحادثة')}</button>`);
@@ -1024,6 +1099,7 @@ function openChatMenu(e) {
       else if (act === 'media') openMediaGallery();
       else if (act === 'members') openMembersModal();
       else if (act === 'addmember') { openMembersModal().then(() => document.getElementById('addMemberInput')?.focus()); }
+      else if (act === 'copylink') copyChatLink();
       else if (act === 'delete') onDeleteConversation();
     };
   });

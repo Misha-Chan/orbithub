@@ -88,8 +88,13 @@ function injectOG(html, meta) {
  * هنا، مو بس اسم ملف. express.static وحده ما يعرف يوصّل /chat لـ
  * chat.html (هو يبحث عن ملف اسمه "chat" بالضبط، وما يلاقيه، فيرجّع 404).
  * هذا كان سبب الـ 404 اللي كان يطلع بعد التحويل من Hostaka.
+ *
+ * صار لكل محادثة رابط خاص فيها (/chat/<username> للفردية، /chat/g/<id>
+ * للجماعية) — نفس الصفحة تُخدَّم بكل الحالات، والعميل (chat.js) يقرأ المسار
+ * ويفتح المحادثة المطابقة. الروابط لا تكشف أي محتوى بحد ذاتها (كل المحادثات
+ * خلف تسجيل الدخول)، فهي للوصول المباشر/الحفظ/المشاركة بين الأطراف فقط.
  */
-app.get('/chat', (req, res) => {
+function serveChat(req, res) {
   const meta = {
     title: `${SITE_NAME} — Hostaka Messages`,
     description: DEFAULT_DESC,
@@ -102,7 +107,8 @@ app.get('/chat', (req, res) => {
   } catch (e) {
     res.sendFile(path.join(__dirname, '..', 'public', 'chat.html'));
   }
-});
+}
+app.get(['/chat', '/chat/:token', '/chat/g/:id'], serveChat);
 
 // أي رابط قديم لجذر الموقع يوديه لنفس صفحة الدردشة (لا يوجد صفحة هبوط
 // منفصلة بـ orbithub — هو فرع مراسلات فقط).
