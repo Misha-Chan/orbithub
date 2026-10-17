@@ -334,16 +334,16 @@
   --avatar-gradient: linear-gradient(145deg, #2a9d63, #4fd894);
 
   --black: #000000;
-  --dark: #040906;          /* خلفية أغمق بكثير */
+  --dark: #010301;          /* خلفية شبه سوداء */
   --bg: var(--dark);
-  --card: #0c1710;
-  --border: rgba(255,255,255,.08);
+  --card: #07100b;
+  --border: rgba(255,255,255,.07);
   --text: #e7f4ec;
-  --muted: #7e9589;
-  --input-bg: #0a140e;
-  --modal-bg: #0c1710;
-  --surface-elevated: #12211a;
-  --post-bg: #0c1710;
+  --muted: #778c81;
+  --input-bg: #050b08;
+  --modal-bg: #07100b;
+  --surface-elevated: #0c1611;
+  --post-bg: #07100b;
 }
 
 /* فقاعات الرسائل — أخضر غامق داكن */
