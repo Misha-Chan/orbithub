@@ -65,6 +65,7 @@
     "media": "عرض الوسائط",
     "members_nick": "عرض الأعضاء وتعيين الكنيات",
     "add_member": "إضافة عضو",
+    "change_group_photo": "تغيير صورة المجموعة",
     "copy_link": "نسخ رابط المحادثة",
     "link_copied": "تم نسخ رابط المحادثة",
     "delete_conv": "حذف المحادثة"
@@ -83,6 +84,8 @@
     "user_blocked": "تم حظر المستخدم",
     "report_sent": "تم إرسال البلاغ، شكراً لك",
     "not_an_image": "الملف المختار ليس صورة",
+    "no_permission": "صلاحية غير كافية",
+    "group_photo_updated": "تم تحديث صورة المجموعة",
     "no_messages_yet": "لا محادثات بعد"
   },
   "errors": {

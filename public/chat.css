@@ -376,3 +376,29 @@
   height: 2.6rem;
   vertical-align: middle;
 }
+
+/* رسائل النظام (تغيير صورة/كنية/إضافة عضو...) — نص خافت وسط المحادثة
+   يظهر تدريجياً مثل ماسنجر */
+.msg-system {
+  align-self: center;
+  max-width: 82%;
+  margin: 12px auto;
+  padding: 4px 12px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--input-bg);
+  border-radius: 12px;
+  opacity: .9;
+  animation: msgSystemFade .55s ease both;
+}
+.msg-system .femoji {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -.2em;
+}
+@keyframes msgSystemFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: .9; transform: translateY(0); }
+}

@@ -115,6 +115,7 @@ async function initSchema() {
       from_avatar TEXT DEFAULT '',
       content     TEXT NOT NULL,
       image       TEXT DEFAULT '',
+      type        TEXT NOT NULL DEFAULT 'text', -- text | system (رسالة نظام: تغيير صورة/كنية/عضو...)
       edited      INTEGER NOT NULL DEFAULT 0,
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -164,6 +165,7 @@ async function migrateExistingTables() {
     ['messages', 'encrypted', 'INTEGER NOT NULL DEFAULT 0'],
     ['messages', 'iv', "TEXT DEFAULT ''"],
     ['group_members', 'last_read_at', 'TEXT DEFAULT NULL'],
+    ['group_messages', 'type', "TEXT NOT NULL DEFAULT 'text'"],
   ];
 
   for (const [table, column, definition] of columnsToEnsure) {

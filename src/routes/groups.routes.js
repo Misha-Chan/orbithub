@@ -26,6 +26,13 @@ function requireGroupAdmin(req, res, next) {
   next();
 }
 
+/** اسم المتصفح (صاحب الإجراء) لعرضه في رسائل النظام */
+async function actorName(req) {
+  const me = await users.getUserById(req.user.id);
+  return (me && (me.display_name || me.username)) || 'مستخدم';
+}
+function memberLabel(u) { return u ? (u.display_name || u.username) : 'عضو'; }
+
 router.get('/', asyncHandler(async (req, res) => {
   res.json(await groups.getUserGroups(req.user.id));
 }));
@@ -33,7 +40,9 @@ router.get('/', asyncHandler(async (req, res) => {
 router.post('/', asyncHandler(async (req, res) => {
   const { name, description, avatar } = req.body || {};
   if (!name?.trim()) throw new ApiError(400, 'اسم المجموعة مطلوب');
-  res.status(201).json(await groups.createGroup(req.user.id, { name: name.trim(), description, avatar }));
+  const group = await groups.createGroup(req.user.id, { name: name.trim(), description, avatar });
+  await groups.addSystemMessage(group.id, req.user.id, `${await actorName(req)} أنشأ المجموعة`);
+  res.status(201).json(group);
 }));
 
 router.get('/:id', requireMember, asyncHandler(async (req, res) => {
@@ -44,7 +53,20 @@ router.get('/:id', requireMember, asyncHandler(async (req, res) => {
 
 router.put('/:id', requireMember, requireGroupAdmin, asyncHandler(async (req, res) => {
   const { name, description, avatar } = req.body || {};
-  res.json(await groups.updateGroup(req.groupId, { name, description, avatar }));
+  const before = await groups.getGroupById(req.groupId);
+  const updated = await groups.updateGroup(req.groupId, { name, description, avatar });
+  const who = await actorName(req);
+  // كل تغيير بالإعدادات يُسجَّل كرسالة نظام تظهر بنص خافت عند كل الأعضاء.
+  if (avatar !== undefined && avatar !== before.avatar) {
+    await groups.addSystemMessage(req.groupId, req.user.id, `${who} غيّر صورة المجموعة`);
+  }
+  if (name !== undefined && name !== before.name) {
+    await groups.addSystemMessage(req.groupId, req.user.id, `${who} غيّر اسم المجموعة إلى «${updated.name}»`);
+  }
+  if (description !== undefined && description !== before.description) {
+    await groups.addSystemMessage(req.groupId, req.user.id, `${who} حدّث وصف المجموعة`);
+  }
+  res.json(updated);
 }));
 
 router.delete('/:id', requireMember, asyncHandler(async (req, res) => {
@@ -57,7 +79,9 @@ router.post('/:id/members', requireMember, requireGroupAdmin, asyncHandler(async
   const { username } = req.body || {};
   const target = await users.getUserByUsername(username);
   if (!target) throw new ApiError(404, 'المستخدم غير موجود');
+  if (await groups.getMembership(req.groupId, target.id)) { res.json({ success: true }); return; }
   await groups.addMember(req.groupId, target.id);
+  await groups.addSystemMessage(req.groupId, req.user.id, `${await actorName(req)} أضاف ${memberLabel(target)} إلى المجموعة`);
   res.json({ success: true });
 }));
 
@@ -67,7 +91,14 @@ router.delete('/:id/members/:uid', requireMember, asyncHandler(async (req, res) 
   if (!isSelf && !['owner', 'admin'].includes(req.membership.role)) {
     throw new ApiError(403, 'صلاحية غير كافية');
   }
+  const target = await users.getUserById(targetId);
+  if (!(await groups.getMembership(req.groupId, targetId))) { res.json({ success: true }); return; }
   await groups.removeMember(req.groupId, targetId);
+  const who = await actorName(req);
+  await groups.addSystemMessage(
+    req.groupId, req.user.id,
+    isSelf ? `${who} غادر المجموعة` : `${who} أزال ${memberLabel(target)} من المجموعة`
+  );
   res.json({ success: true });
 }));
 
@@ -75,17 +106,35 @@ router.put('/:id/members/:uid/role', requireMember, requireGroupAdmin, asyncHand
   const targetId = toIntOrThrow(req.params.uid, 'معرف العضو');
   const role = req.body?.role;
   if (!['admin', 'member'].includes(role)) throw new ApiError(400, 'دور غير صالح');
+  const mem = await groups.getMembership(req.groupId, targetId);
+  if (!mem || mem.role === role) { res.json({ success: true }); return; }
   await groups.setMemberRole(req.groupId, targetId, role);
+  const target = await users.getUserById(targetId);
+  const label = memberLabel(target);
+  await groups.addSystemMessage(
+    req.groupId, req.user.id,
+    role === 'admin' ? `${await actorName(req)} عيّن ${label} كمشرف` : `${await actorName(req)} أزال إشراف ${label}`
+  );
   res.json({ success: true });
 }));
 
 router.put('/:id/members/:uid/nickname', requireMember, asyncHandler(async (req, res) => {
   const targetId = toIntOrThrow(req.params.uid, 'معرف العضو');
+  const isSelf = targetId === req.user.id;
   // كل عضو يقدر يغيّر كنيته هو فقط، إلا لو كان أدمن/مالك
-  if (targetId !== req.user.id && !['owner', 'admin'].includes(req.membership.role)) {
+  if (!isSelf && !['owner', 'admin'].includes(req.membership.role)) {
     throw new ApiError(403, 'صلاحية غير كافية');
   }
-  await groups.setMemberNickname(req.groupId, targetId, String(req.body?.nickname || '').trim().slice(0, 40));
+  const nickname = String(req.body?.nickname || '').trim().slice(0, 40);
+  const mem = await groups.getMembership(req.groupId, targetId);
+  if (mem && (mem.nickname || '') === nickname) { res.json({ success: true }); return; }
+  await groups.setMemberNickname(req.groupId, targetId, nickname);
+  const who = await actorName(req);
+  const label = memberLabel(await users.getUserById(targetId));
+  const text = isSelf
+    ? (nickname ? `${who} غيّر كنيته إلى «${nickname}»` : `${who} أزال كنيته`)
+    : (nickname ? `${who} غيّر كنية ${label} إلى «${nickname}»` : `${who} أزال كنية ${label}`);
+  await groups.addSystemMessage(req.groupId, req.user.id, text);
   res.json({ success: true });
 }));
 

@@ -85,9 +85,21 @@ async function markGroupRead(groupId, userId) {
 // ---- رسائل المجموعة ----
 async function sendGroupMessage({ groupId, userId, fromName, fromAvatar, content, image }) {
   const r = await run(
-    `INSERT INTO group_messages (group_id, user_id, from_name, from_avatar, content, image)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO group_messages (group_id, user_id, from_name, from_avatar, content, image, type)
+     VALUES (?, ?, ?, ?, ?, ?, 'text')`,
     [groupId, userId, fromName, fromAvatar || '', content || '', image || '']
+  );
+  return getGroupMessageById(Number(r.lastInsertRowid));
+}
+
+/// رسالة نظام (تغيير صورة المجموعة/الكنية/إضافة عضو...) تظهر بنص خافت وسط
+/// المحادثة عند كل الأعضاء — تُخزَّن كصف عادي بنوع 'system' حتى تصل للجميع
+/// مع الاستطلاع الدوري، بدل ما تكون مخفية عند الطرف اللي عمل التغيير فقط.
+async function addSystemMessage(groupId, userId, content) {
+  const r = await run(
+    `INSERT INTO group_messages (group_id, user_id, from_name, from_avatar, content, image, type)
+     VALUES (?, ?, '', '', ?, '', 'system')`,
+    [groupId, userId, String(content || '').slice(0, 300)]
   );
   return getGroupMessageById(Number(r.lastInsertRowid));
 }
@@ -153,5 +165,6 @@ module.exports = {
   createGroup, getGroupById, getUserGroups, getMembership, getMembers,
   updateGroup, deleteGroup, addMember, removeMember, setMemberRole, setMemberNickname, markGroupRead,
   sendGroupMessage, getGroupMessageById, getGroupMessages, getGroupMedia, updateGroupMessage, deleteGroupMessage,
+  addSystemMessage,
   getUserReaction, addReaction, removeReaction, getReactions,
 };

@@ -353,7 +353,7 @@ async function renderMessages(msgs, type) {
   // نتجاهل إعادة رسم الرسائل نفسها بالكامل — بدون أي تأثير مرئي، الصفحة
   // تضل ثابتة تمامًا. عدّاد التفاعلات يستمر يتحدّث دايماً بكل الحالات
   // (تحته)، لأنه ممكن يتغيّر بدون ما تتغيّر بصمة الرسائل نفسها.
-  const sig = msgs.map((m) => `${m.id}:${m.edited ? 1 : 0}:${(m.content || '').length}:${m.image ? 1 : 0}`).join('|');
+  const sig = msgs.map((m) => `${m.id}:${m.edited ? 1 : 0}:${(m.content || '').length}:${m.image ? 1 : 0}:${m.type || 'text'}`).join('|');
   const contentChanged = sig !== lastRenderSig;
 
   if (contentChanged) {
@@ -516,6 +516,10 @@ async function renderOneMessage(m, type) {
     try { await EmojiFluent.loadCatalog(); } catch (e) { /* تجاهل */ }
   }
   const content = window.EmojiFluent ? EmojiFluent.render(escapeHtml(rawContent)) : escapeHtml(rawContent);
+  // رسائل النظام (تغيير صورة/كنية/عضو...) تُعرض بنص خافت وسط المحادثة بدل فقاعة.
+  if (m.type === 'system') {
+    return `<div class="msg-system" data-msgid="${m.id}">${content}</div>`;
+  }
   const bigEmoji = !m.image && content && isEmojiOnly(rawContent);
   const previewUrl = extractFirstUrl(rawContent);
   // ملاحظة: التفاعلات (عدد كل نوع + تفاعل المستخدم الحالي) تُحمَّل وتُحدَّث
@@ -1054,6 +1058,7 @@ function openChatMenu(e) {
     members: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     addMember: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>',
     link: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    photo: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
   };
 
   const items = [];
@@ -1067,6 +1072,9 @@ function openChatMenu(e) {
     items.push(`<button data-act="report" class="danger">${icons.flag}${t('menu.report_conv', 'الإبلاغ عن المحادثة')}</button>`);
   } else {
     items.push(`<button data-act="members">${icons.members}${t('menu.members_nick', 'عرض الأعضاء وتعيين الكنيات')}</button>`);
+    if (['owner', 'admin'].includes(activeChat.myRole)) {
+      items.push(`<button data-act="gavatar">${icons.photo}${t('menu.change_group_photo', 'تغيير صورة المجموعة')}</button>`);
+    }
     items.push(`<button data-act="addmember">${icons.addMember}${t('menu.add_member', 'إضافة عضو')}</button>`);
     items.push(`<button data-act="media">${icons.media}${t('menu.media', 'عرض الوسائط')}</button>`);
     items.push(`<button data-act="copylink">${icons.link}${t('menu.copy_link', 'نسخ رابط المحادثة')}</button>`);
@@ -1099,6 +1107,7 @@ function openChatMenu(e) {
       else if (act === 'media') openMediaGallery();
       else if (act === 'members') openMembersModal();
       else if (act === 'addmember') { openMembersModal().then(() => document.getElementById('addMemberInput')?.focus()); }
+      else if (act === 'gavatar') changeGroupAvatar();
       else if (act === 'copylink') copyChatLink();
       else if (act === 'delete') onDeleteConversation();
     };
@@ -1197,8 +1206,50 @@ async function openMediaGallery() {
   } catch (e) { showToast(e.message, true); }
 }
 
-async function addMemberToGroup() {
-  const input = document.getElementById('addMemberInput');
+/** يفتح منتقي ملفات ويغيّر صورة المجموعة (للمالك/المشرف فقط) عبر /upload ثم
+ *  PUT /groups/:id. التغيير نفسه يسجّله السيرفر كرسالة نظام تظهر للجميع. */
+function changeGroupAvatar() {
+  if (!activeChat || activeChat.type !== 'group') return;
+  if (!['owner', 'admin'].includes(activeChat.myRole)) {
+    showToast(t('toast.no_permission', 'صلاحية غير كافية'), true);
+    return;
+  }
+  let input = document.getElementById('groupAvatarInput');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.id = 'groupAvatarInput';
+    input.hidden = true;
+    document.body.appendChild(input);
+    input.addEventListener('change', onGroupAvatarChosen);
+  }
+  input.value = '';
+  input.click();
+}
+
+async function onGroupAvatarChosen(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !activeChat || activeChat.type !== 'group') return;
+  if (!file.type.startsWith('image/')) {
+    showToast(t('toast.not_an_image', 'الملف المختار ليس صورة'), true);
+    return;
+  }
+  try {
+    const base64 = await fileToBase64(file);
+    const { url } = await Api.post('/upload', { image: base64 });
+    const group = await Api.put('/groups/' + activeChat.id, { avatar: url });
+    activeChat.avatar = group.avatar || url;
+    document.getElementById('threadAvatar').innerHTML = `<img src="${escapeHtml(activeChat.avatar)}">`;
+    loadGroups();
+    showToast(t('toast.group_photo_updated', 'تم تحديث صورة المجموعة'));
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+async function addMemberToGroup() {  const input = document.getElementById('addMemberInput');
   const username = input.value.trim();
   if (!username) return;
   try {

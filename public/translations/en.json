@@ -65,6 +65,7 @@
     "media": "View media",
     "members_nick": "View members & set nicknames",
     "add_member": "Add member",
+    "change_group_photo": "Change group photo",
     "copy_link": "Copy conversation link",
     "link_copied": "Conversation link copied",
     "delete_conv": "Delete conversation"
@@ -83,6 +84,8 @@
     "user_blocked": "User blocked",
     "report_sent": "Report sent, thank you",
     "not_an_image": "Selected file isn't an image",
+    "no_permission": "Insufficient permission",
+    "group_photo_updated": "Group photo updated",
     "no_messages_yet": "No conversations yet"
   },
   "errors": {
