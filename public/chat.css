@@ -61,7 +61,7 @@
    نفس المتغير --primary-light بالخطأ فيطلعان بنفس اللون تقريبًا) */
 .msg-row.mine .msg-bubble { background: var(--primary-mid); border-bottom-left-radius: 4px; }
 .msg-row.theirs .msg-bubble { background: var(--card); border: 1px solid var(--border); border-bottom-right-radius: 4px; }
-.msg-bubble img { display: none; } /* الطراز القديم — الصور صارت خارج الفقاعة (.msg-image) */
+.msg-bubble img:not(.femoji) { display: none; } /* الطراز القديم — الصور صارت خارج الفقاعة (.msg-image)؛ نستثني إيموجي Fluent */
 .msg-image {
   max-width: 260px; max-height: 320px; display: block; margin-top: 4px;
   border-radius: 12px; cursor: pointer; border: none; background: none;
