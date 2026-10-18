@@ -95,8 +95,13 @@ router.delete('/:id/members/:uid', requireMember, asyncHandler(async (req, res) 
   if (!isSelf && !['owner', 'admin'].includes(req.membership.role)) {
     throw new ApiError(403, 'صلاحية غير كافية');
   }
+  const targetMem = await groups.getMembership(req.groupId, targetId);
+  if (!targetMem) { res.json({ success: true }); return; }
+  // لا يمكن لأي عضو (حتى الأدمن) إزالة مالك المجموعة؛ المالك فقط يخرج بنفسه.
+  if (targetMem.role === 'owner' && !isSelf) {
+    throw new ApiError(403, 'لا يمكن إزالة مالك المجموعة');
+  }
   const target = await users.getUserById(targetId);
-  if (!(await groups.getMembership(req.groupId, targetId))) { res.json({ success: true }); return; }
   await groups.removeMember(req.groupId, targetId);
   const who = await actorName(req);
   await groups.addSystemMessage(
@@ -112,6 +117,9 @@ router.put('/:id/members/:uid/role', requireMember, requireGroupAdmin, asyncHand
   if (!['admin', 'member'].includes(role)) throw new ApiError(400, 'دور غير صالح');
   const mem = await groups.getMembership(req.groupId, targetId);
   if (!mem || mem.role === role) { res.json({ success: true }); return; }
+  // لا يمكن تغيير دور المالك، ولا يمكن لغير المالك تعديل دور أدمن آخر (منع تصعيد الصلاحيات).
+  if (mem.role === 'owner') throw new ApiError(403, 'لا يمكن تغيير دور مالك المجموعة');
+  if (mem.role === 'admin' && req.membership.role !== 'owner') throw new ApiError(403, 'صلاحية غير كافية');
   await groups.setMemberRole(req.groupId, targetId, role);
   const target = await users.getUserById(targetId);
   const label = memberLabel(target);
