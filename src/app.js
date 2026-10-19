@@ -33,7 +33,16 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors());
+// CORS: نسمح فقط بنطاقات Hostaka (وتطوير محلي) بدل '*' — أي موقع كان يستطيع
+// قراءة ردود الـ API لو حصل على توكن.
+const ALLOWED_ORIGIN_RE = /^(?:https:\/\/(?:[a-z0-9-]+\.)?hostaka\.fun|http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?)$/i;
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // طلبات غير المتصفح (curl/خادم) بلا Origin
+    return cb(null, ALLOWED_ORIGIN_RE.test(origin));
+  },
+  credentials: false,
+}));
 app.use(cookieParser());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
