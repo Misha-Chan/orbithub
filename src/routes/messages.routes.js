@@ -21,6 +21,9 @@ router.get('/reactions', asyncHandler(async (req, res) => {
   const ids = String(req.query.ids || '').split(',').map(Number).filter(Boolean);
   const result = {};
   for (const id of ids) {
+    // لا نُرجع تفاعلات إلا لرسالة المستخدم طرفٌ فيها (منع IDOR على رسائل الآخرين)
+    const m = await msgs.getMessageById(id);
+    if (!m || (m.from_id !== req.user.id && m.to_id !== req.user.id)) continue;
     const reactions = await msgs.getReactions(id);
     const mine = (await msgs.getUserReaction(id, req.user.id))?.emoji || null;
     if (reactions.length || mine) result[id] = { reactions, userReaction: mine };
@@ -72,6 +75,9 @@ router.put('/:username/nickname', asyncHandler(async (req, res) => {
 router.post('/react/:id', asyncHandler(async (req, res) => {
   const id = toIntOrThrow(req.params.id, 'معرف الرسالة');
   const emoji = req.body?.emoji || 'heart';
+  // يجب أن يكون المستخدم مرسل الرسالة أو مستقبلها (منع IDOR على تفاعلات رسائل الآخرين)
+  const msg = await msgs.getMessageById(id);
+  if (!msg || (msg.from_id !== req.user.id && msg.to_id !== req.user.id)) throw new ApiError(403, 'غير مسموح');
   const existing = await msgs.getUserReaction(id, req.user.id);
   if (existing && existing.emoji === emoji) {
     await msgs.removeReaction(id, req.user.id);

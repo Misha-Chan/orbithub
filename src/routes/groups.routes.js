@@ -206,6 +206,9 @@ router.post('/:gid/messages/:mid/react', asyncHandler(async (req, res) => {
   if (!membership) throw new ApiError(403, 'لست عضواً في هذه المجموعة');
 
   const mid = toIntOrThrow(req.params.mid, 'معرف الرسالة');
+  // التأكد أن الرسالة تنتمي لهذه المجموعة (منع IDOR على رسائل مجموعة أخرى)
+  const target = await groups.getGroupMessageById(mid);
+  if (!target || target.group_id !== groupId) throw new ApiError(404, 'غير موجود');
   const emoji = req.body?.emoji || 'heart';
   const existing = await groups.getUserReaction(mid, req.user.id);
   if (existing && existing.emoji === emoji) {
@@ -222,6 +225,9 @@ router.get('/:id/messages/reactions', requireMember, asyncHandler(async (req, re
   const ids = String(req.query.ids || '').split(',').map(Number).filter(Boolean);
   const result = {};
   for (const mid of ids) {
+    // لا نُرجع تفاعلات إلا لرسالة تنتمي لهذه المجموعة (منع IDOR عبر مجموعات أخرى)
+    const m = await groups.getGroupMessageById(mid);
+    if (!m || m.group_id !== req.groupId) continue;
     const reactions = await groups.getReactions(mid);
     const mine = (await groups.getUserReaction(mid, req.user.id))?.emoji || null;
     if (reactions.length || mine) result[mid] = { reactions, userReaction: mine };
